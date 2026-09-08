@@ -25,13 +25,13 @@
   ],
   "scripts": {
     "lint": "eslint . --max-warnings=0",
-    "bosch": "dotenvx run --quiet -- node scripts/bosch.mjs",
+    "bosch": "dotenvx run --quiet -- node scripts/bosch.js",
     "zones": "npm run bosch -- get /zones/list",
     "watch": "npm run build && npm link && nodemon",
     "build": "rimraf ./dist && tsc",
     "prepare": "npm run build",
     "prepublishOnly": "npm run lint && npm run build",
-    "password": "dotenvx run --quiet -- node scripts/bosch-password.mjs"
+    "password": "dotenvx run --quiet -- node scripts/bosch-password.js"
   },
   "keywords": [
     "homebridge-plugin",

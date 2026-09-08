@@ -7,7 +7,7 @@
 // wrong credentials rather than wrong formatting. Normalise both here (spaces
 // included, which the library does not handle either). The password is left
 // alone: it is user-chosen, and a dash in it is a real character.
-import { spawnSync } from 'node:child_process';
+const { spawnSync } = require('node:child_process');
 
 for (const name of ['BOSCH_XMPP_SERIAL_NUMBER', 'BOSCH_XMPP_ACCESS_KEY']) {
     const value = process.env[name];

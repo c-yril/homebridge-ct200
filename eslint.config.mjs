@@ -33,10 +33,14 @@ export default tseslint.config(
         },
     },
     {
-        // Maintenance scripts run under Node directly, not inside Homebridge.
-        files: ['scripts/**/*.mjs'],
+        // Maintenance scripts run under Node directly, not inside Homebridge,
+        // and are CommonJS like everything bosch-xmpp exposes.
+        files: ['scripts/**/*.js'],
         languageOptions: {
+            sourceType: 'commonjs',
             globals: {
+                require: 'readonly',
+                module: 'writable',
                 process: 'readonly',
                 console: 'readonly',
                 Buffer: 'readonly',
@@ -44,6 +48,8 @@ export default tseslint.config(
         },
         rules: {
             'no-console': 'off',
+            // These are CommonJS on purpose; the rule targets TypeScript sources.
+            '@typescript-eslint/no-require-imports': 'off',
         },
     },
 );

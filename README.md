@@ -245,7 +245,9 @@ bridge) first if a request hangs.
 
 #### Checking the device password
 If a request comes back as `... is not valid JSON`, the password is the only thing it can be.
-`npm run password` fetches one encrypted reply, then tests candidates against it offline:
+`npm run password` fetches one encrypted reply, then tests candidates against it offline. It asks
+for the access key too, because a login proves the serial number is known but says nothing
+certain about the access key - which is the first half of the AES key:
 
 ```
 $ npm run password

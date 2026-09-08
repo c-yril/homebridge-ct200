@@ -1,12 +1,15 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { CT200Platform, globalState } from './platform';
 import { EP_BZ, EP_BZ_MODE, EP_BZ_TARGET_TEMP, EP_BZ_MANUAL_TEMP } from './endpoints';
-import { getEndpoint, setEndpoint} from './client';
+import { getEndpoint, setEndpoint } from './client';
 
 /**
  * Platform Accessory
  * An instance of this class is created for each accessory your platform registers
  * Each accessory may expose multiple services of different service types.
+ *
+ * All read handlers answer from the cached state kept in `globalState`; the
+ * platform refreshes that state on a timer.
  */
 export class Thermostat {
     private service: Service;
@@ -38,17 +41,24 @@ export class Thermostat {
             .setProps({ // TODO This could potentially break for users using fahrenheit! (More testing is required)
                 minValue: 5,
                 maxValue: 30,
+                minStep: 0.5, // The Bosch API only accepts half-degree steps
             });
 
         this.service.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState) // Global
             .onGet(this.getCurrentState.bind(this));
 
-        this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState) // Per device
+        // 1 = manual, 3 = auto ('clock' in the Bosch app). HAP defaults this
+        // characteristic to 0 (Off) and a restored accessory may hold any value,
+        // so seed a valid one before narrowing the props - otherwise HAP warns
+        // that the current value isn't in the valid values array.
+        const targetState = this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState);
+        if (targetState.value !== 1 && targetState.value !== 3) {
+            targetState.updateValue(1);
+        }
+        targetState // Per device
             .onGet(this.getTargetState.bind(this))
             .onSet(this.setTargetState.bind(this))
             .setProps({
-                minValue: 1,
-                maxValue: 3,
                 validValues: [1, 3],
             });
 
@@ -72,8 +82,6 @@ export class Thermostat {
     }
 
     async getTargetTemp(): Promise<CharacteristicValue> {
-        getEndpoint(EP_BZ + this.id + EP_BZ_TARGET_TEMP);
-
         const zone = globalState.zones.get(this.id);
         if (zone) {
             return zone.wantedTemp;
@@ -83,10 +91,14 @@ export class Thermostat {
         }
     }
 
-    async setTargetTemp(value: CharacteristicValue) {
+    setTargetTemp(value: CharacteristicValue): void {
         // API only allows changing in steps of 0.5
         // TODO Query step size from API instead of hardcoding value
         const nearestHalfDecimal = Math.round(value as number / 0.5) * 0.5;
+
+        // Deliberately not awaited: writes share the request queue with the
+        // refresh GETs, and HomeKit times a write handler out long before a
+        // backed-up queue would drain.
         setEndpoint(EP_BZ + this.id + EP_BZ_MANUAL_TEMP, String(nearestHalfDecimal)).then(response => {
             if (response === undefined) {
                 this.platform.log.error('Received invalid response when setting temperature!');
@@ -107,8 +119,6 @@ export class Thermostat {
     }
 
     async getTargetState(): Promise<CharacteristicValue> {
-        getEndpoint(EP_BZ + this.id + EP_BZ_MODE);
-
         const zone = globalState.zones.get(this.id);
         if (zone) {
             return zone.mode;
@@ -118,7 +128,7 @@ export class Thermostat {
         }
     }
 
-    async setTargetState(value: CharacteristicValue) {
+    setTargetState(value: CharacteristicValue): void {
         setEndpoint(EP_BZ + this.id + EP_BZ_MODE, value === 3 ? '"clock"' : '"manual"').then(response => {
             if (response === undefined) {
                 this.platform.log.error('Received invalid response when setting state!');

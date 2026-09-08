@@ -1,9 +1,19 @@
-import { API, Characteristic, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service } from 'homebridge';
+import {
+    API,
+    APIEvent,
+    Characteristic,
+    DynamicPlatformPlugin,
+    Logging,
+    PlatformAccessory,
+    PlatformConfig,
+    Service,
+} from 'homebridge';
+import type { BoschResponse } from 'bosch-xmpp';
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { Thermostat } from './thermostat';
 import { AwaySwitch } from './switch';
-import { EP_ZONES, EP_LOCALIZATION, EP_HUMIDITY, EP_AWAY, EP_BZ_MODE, EP_BZ_TARGET_TEMP } from './endpoints';
-import { connectAPI, getEndpoint } from './client';
+import { EP_ZONES, EP_LOCALIZATION, EP_HUMIDITY, EP_AWAY, EP_BZ, EP_BZ_MODE, EP_BZ_TARGET_TEMP } from './endpoints';
+import { connectAPI, disconnectAPI, getEndpoint } from './client';
 
 // All the info needed to describe a Zone
 class Zone {
@@ -35,37 +45,52 @@ class SystemStatus {
     localization = 0;
 }
 
-export let globalState: SystemStatus;
-export let globalLogger: Logger;
-let globalPlatform: CT200Platform;
+export const globalState = new SystemStatus();
+export let globalLogger: Logging;
 
-export function processResponse(response) {
+// The HAP definitions `processResponse` needs to push updates. They only become
+// available once the platform is constructed, hence the module-level handles.
+let hapService: typeof Service;
+let hapCharacteristic: typeof Characteristic;
+
+// Info returned by /zones/list
+interface ResponseZone {
+    id: number;
+    name: string;
+    icon: string;
+    program: number;
+    temp: number;
+    status: string;
+}
+
+interface ConfigZone {
+    index: number;
+    name: string;
+}
+
+/** Coerces an API value to a number, or undefined when it isn't usable as one. */
+function asNumber(value: unknown): number | undefined {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+export function processResponse(response: BoschResponse) {
     globalLogger.debug('Processing ' + response['id']);
 
     switch (response['id']) {
         case EP_ZONES: {
-            // Info returned by /zones/list
-            interface ResponseZone {
-                id: number;
-                name: string;
-                icon: string;
-                program: number;
-                temp: number;
-                status: string;
-            }
-
-            response['value'].forEach((zone: ResponseZone) => {
+            (response['value'] as ResponseZone[]).forEach((zone: ResponseZone) => {
                 const savedZone = globalState.zones.get(zone.id);
                 if (savedZone) {
                     savedZone.currentTemp = zone.temp <= 100 ? zone.temp : savedZone.currentTemp;
                     savedZone.state = zone.status.includes('heat') ? 1 : 0;
 
-                    const thermostat = savedZone.accessory.getService((globalPlatform.Service.Thermostat));
+                    const thermostat = savedZone.accessory.getService((hapService.Thermostat));
                     if (thermostat) {
-                        thermostat.updateCharacteristic(globalPlatform.Characteristic.CurrentTemperature,
+                        thermostat.updateCharacteristic(hapCharacteristic.CurrentTemperature,
                             savedZone.currentTemp);
 
-                        thermostat.updateCharacteristic(globalPlatform.Characteristic.CurrentHeatingCoolingState,
+                        thermostat.updateCharacteristic(hapCharacteristic.CurrentHeatingCoolingState,
                             savedZone.state);
                     }
                     globalState.zones.set(zone.id, savedZone);
@@ -78,9 +103,9 @@ export function processResponse(response) {
         case EP_LOCALIZATION: {
             globalState.localization = response['value'] === 'Celsius' ? 0 : 1;
             globalState.zones.forEach((zone) => {
-                const thermostat = zone.accessory.getService(globalPlatform.Service.Thermostat);
+                const thermostat = zone.accessory.getService(hapService.Thermostat);
                 if (thermostat) {
-                    thermostat.updateCharacteristic(globalPlatform.Characteristic.TemperatureDisplayUnits, globalState.localization);
+                    thermostat.updateCharacteristic(hapCharacteristic.TemperatureDisplayUnits, globalState.localization);
                 }
             });
 
@@ -88,11 +113,17 @@ export function processResponse(response) {
         }
 
         case EP_HUMIDITY: {
-            globalState.humidity = response['value'];
+            const humidity = asNumber(response['value']);
+            if (humidity === undefined) {
+                globalLogger.debug('Ignoring unusable humidity value: ' + response['value']);
+                break;
+            }
+
+            globalState.humidity = humidity;
             globalState.zones.forEach((zone) => {
-                const thermostat = zone.accessory.getService(globalPlatform.Service.Thermostat);
+                const thermostat = zone.accessory.getService(hapService.Thermostat);
                 if (thermostat) {
-                    thermostat.updateCharacteristic(globalPlatform.Characteristic.CurrentRelativeHumidity, globalState.humidity);
+                    thermostat.updateCharacteristic(hapCharacteristic.CurrentRelativeHumidity, globalState.humidity);
                 }
             });
             break;
@@ -101,9 +132,9 @@ export function processResponse(response) {
         case EP_AWAY: {
             globalState.away.state = response['value'] === 'false' ? 0 : 1;
             if (globalState.away.accessory) {
-                const modeSwitch = globalState.away.accessory.getService(globalPlatform.Service.Switch);
+                const modeSwitch = globalState.away.accessory.getService(hapService.Switch);
                 if (modeSwitch) {
-                    modeSwitch.updateCharacteristic(globalPlatform.Characteristic.On, globalState.away.state);
+                    modeSwitch.updateCharacteristic(hapCharacteristic.On, globalState.away.state);
                 }
             }
             break;
@@ -114,7 +145,7 @@ export function processResponse(response) {
             const id: number = parseInt(response['id'].replace(/[^0-9]/g, ''), 10);
             const savedZone = globalState.zones.get(id);
             if (savedZone) {
-                const thermostat = savedZone.accessory.getService(globalPlatform.Service.Thermostat);
+                const thermostat = savedZone.accessory.getService(hapService.Thermostat);
                 if (thermostat) {
                     if (endpoint.includes(EP_BZ_MODE)) {
                         if (response['value'] === 'clock') {
@@ -122,10 +153,15 @@ export function processResponse(response) {
                         } else {
                             savedZone.mode = 1;
                         }
-                        thermostat.updateCharacteristic(globalPlatform.Characteristic.TargetHeatingCoolingState, savedZone.mode);
+                        thermostat.updateCharacteristic(hapCharacteristic.TargetHeatingCoolingState, savedZone.mode);
                     } else if (endpoint.includes(EP_BZ_TARGET_TEMP)) {
-                        savedZone.wantedTemp = response['value'];
-                        thermostat.updateCharacteristic(globalPlatform.Characteristic.TargetTemperature, savedZone.wantedTemp);
+                        const wantedTemp = asNumber(response['value']);
+                        if (wantedTemp === undefined) {
+                            globalLogger.debug('Ignoring unusable target temperature: ' + response['value']);
+                            break;
+                        }
+                        savedZone.wantedTemp = wantedTemp;
+                        thermostat.updateCharacteristic(hapCharacteristic.TargetTemperature, savedZone.wantedTemp);
                     }
                 }
                 globalState.zones.set(id, savedZone);
@@ -136,29 +172,59 @@ export function processResponse(response) {
 }
 
 export class CT200Platform implements DynamicPlatformPlugin {
-    public readonly Service: typeof Service = this.api.hap.Service;
-    public readonly Characteristic: typeof Characteristic = this.api.hap.Characteristic;
+    public readonly Service: typeof Service;
+    public readonly Characteristic: typeof Characteristic;
     public readonly accessories: PlatformAccessory[] = []; // Cache accessories
 
+    private readonly timers: NodeJS.Timeout[] = [];
+
     constructor(
-        public readonly log: Logger,
+        public readonly log: Logging,
         public readonly config: PlatformConfig,
         public readonly api: API,
     ) {
-        globalLogger = this.log;
-        globalPlatform = this;
+        // Assigned here rather than as field initializers: with an ES2022 target
+        // those would run before the `api` parameter property exists.
+        this.Service = this.api.hap.Service;
+        this.Characteristic = this.api.hap.Characteristic;
 
+        globalLogger = this.log;
+        hapService = this.Service;
+        hapCharacteristic = this.Characteristic;
+
+        // Never exit the process on a bad config: under Homebridge 2 that turns
+        // into an endless (child) bridge restart loop. Stay loaded and idle so
+        // the user can fix the config in the UI.
         if (!config['serial'] || !config['access'] || !config['password'] || !config['zones']) {
-            log.error('Config doesn\'t have needed values!');
-            process.exit(1);
+            log.error('Config doesn\'t have needed values! Set access, serial, password and zones, then restart Homebridge.');
+            return;
         }
 
-        this.api.on('didFinishLaunching', () => {
+        this.api.on(APIEvent.DID_FINISH_LAUNCHING, () => {
             log.debug('Executed didFinishLaunching callback');
-            connectAPI(config['serial'], config['access'], config['password']).then(() => {
-                this.log.debug('Finished initializing platform:', this.config.platform);
-                this.discoverDevices();
-            });
+
+            // Accessories come from the config alone, so expose them before
+            // talking to Bosch. HomeKit then stays populated (with cached
+            // values) even while the backend is unreachable.
+            if (!this.discoverDevices()) {
+                return;
+            }
+
+            this.log.debug('Finished initializing platform:', this.config.platform);
+            this.startPolling();
+
+            connectAPI(config['serial'], config['access'], config['password'])
+                .then(() => {
+                    getEndpoint(EP_ZONES);
+                    this.refreshCachedState();
+                })
+                .catch((e) => this.log.error('Failed to initialize platform: ' + e));
+        });
+
+        this.api.on(APIEvent.SHUTDOWN, () => {
+            this.timers.forEach(timer => clearInterval(timer));
+            this.timers.length = 0;
+            disconnectAPI().catch((e) => this.log.debug('Failed to disconnect cleanly: ' + e));
         });
     }
 
@@ -166,18 +232,11 @@ export class CT200Platform implements DynamicPlatformPlugin {
         this.accessories.push(accessory);
     }
 
-    discoverDevices() {
-
-        globalState = new SystemStatus();
-
-        interface ConfigZone {
-            index: number;
-            name: string;
-        }
-
+    /** Registers the accessories described by the config. Returns false if the config is unusable. */
+    discoverDevices(): boolean {
         if (!('zones' in this.config) || this.config['zones'].length === 0) {
-            this.log.error('No zones defined!');
-            process.exit(1);
+            this.log.error('No zones defined! Add at least one zone to the plugin config, then restart Homebridge.');
+            return false;
         }
 
         this.config['zones'].forEach((zone: ConfigZone) => {
@@ -233,36 +292,45 @@ export class CT200Platform implements DynamicPlatformPlugin {
             }
         }
 
-        // Get initial zone state
-        getEndpoint(EP_ZONES);
+        return true;
+    }
 
-        // Get initial humidity
-        getEndpoint(EP_HUMIDITY);
-
-        // Get localization option
-        getEndpoint(EP_LOCALIZATION);
-
+    startPolling() {
         // Configure zone info refresh
         let zoneInterval: number = 'zoneInterval' in this.config ? this.config['zoneInterval'] : 2;
         if (zoneInterval < 1) {
             this.log.warn('Zone refresh interval can\'t be less than 1! Setting to 1');
             zoneInterval = 1;
         }
-        setInterval(() => {
+        this.timers.push(setInterval(() => {
             globalLogger.debug('Updating zone status');
             getEndpoint(EP_ZONES);
-        }, 1000 * 60 * zoneInterval);
+        }, 1000 * 60 * zoneInterval));
 
-        // Configure humidity and localization refresh
+        // Configure humidity, localization, away and per-zone refresh
         let auxInterval: number = 'auxInterval' in this.config ? this.config['auxInterval'] : 5;
         if (auxInterval < 1) {
             this.log.warn('Auxiliary refresh interval can\'t be less than 1! Setting to 1');
             auxInterval = 1;
         }
-        setInterval(() => {
-            globalLogger.debug('Updating humidity and localization status');
-            getEndpoint(EP_HUMIDITY);
-            getEndpoint(EP_LOCALIZATION);
-        }, 1000 * 60 * auxInterval);
+        this.timers.push(setInterval(() => {
+            globalLogger.debug('Updating humidity, localization, target and away status');
+            this.refreshCachedState();
+        }, 1000 * 60 * auxInterval));
+    }
+
+    /**
+     * Refreshes everything HomeKit reads from cache. Read handlers deliberately
+     * never hit the network themselves, which would spike requests against the
+     * Bosch backend whenever the Home app opens.
+     */
+    refreshCachedState() {
+        getEndpoint(EP_HUMIDITY);
+        getEndpoint(EP_LOCALIZATION);
+        getEndpoint(EP_AWAY);
+        globalState.zones.forEach((zone) => {
+            getEndpoint(EP_BZ + zone.id + EP_BZ_TARGET_TEMP);
+            getEndpoint(EP_BZ + zone.id + EP_BZ_MODE);
+        });
     }
 }

@@ -1,7 +1,7 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { CT200Platform, globalState } from './platform';
 import { EP_AWAY, EP_BZ, EP_BZ_TARGET_TEMP } from './endpoints';
-import { getEndpoint, setEndpoint} from './client';
+import { getEndpoint, setEndpoint } from './client';
 
 /**
  * Platform Accessory
@@ -33,14 +33,17 @@ export class AwaySwitch {
     }
 
     async getAwayStatus(): Promise<CharacteristicValue> {
-        getEndpoint(EP_AWAY);
         return globalState.away.state;
     }
 
-    async setAwayStatus(value: CharacteristicValue) {
+    setAwayStatus(value: CharacteristicValue): void {
         const command = value ? '"true"' : '"false"';
+
+        // Deliberately not awaited, see Thermostat.setTargetTemp.
         setEndpoint(EP_AWAY, command).then(response => {
-            if (response['status'] === 'ok') {
+            if (response === undefined) {
+                this.platform.log.error('Received invalid response when setting away mode!');
+            } else if (response['status'] === 'ok') {
                 // Update zone temperatures after changing state
                 globalState.zones.forEach((zone) => {
                     getEndpoint(EP_BZ + zone.id + EP_BZ_TARGET_TEMP);

@@ -2,8 +2,17 @@
     "pluginAlias": "CT200",
     "pluginType": "platform",
     "singular": true,
+    "strictValidation": false,
+    "headerDisplay": "Control a Bosch EasyControl CT200 (and compatible devices such as the Buderus TC100 v2) from HomeKit.",
+    "footerDisplay": "The password is the **device** password set in the EasyControl app under *Settings → Personal → Change Password* — not your Bosch SingleKey ID password. See the [troubleshooting notes](https://github.com/lynxcs/homebridge-ct200#troubleshooting) if you get login errors.",
     "schema": {
         "type": "object",
+        "required": [
+            "access",
+            "serial",
+            "password",
+            "zones"
+        ],
         "properties": {
             "access": {
                 "title": "Access Key",
@@ -27,7 +36,7 @@
             "password": {
                 "title": "Password",
                 "type": "string",
-                "description": "Bosch account password",
+                "description": "Bosch EasyControl device password (Settings -> Personal -> Change Password), not the Bosch SingleKey ID password",
                 "default": "",
                 "required": true
             },
@@ -49,7 +58,7 @@
             "auxInterval": {
                 "title": "Auxiliary interval",
                 "type": "integer",
-                "description": "How often to query humidity and localization info (minutes)",
+                "description": "How often to query humidity, localization, away and per-zone target info (minutes)",
                 "default": 5,
                 "minimum": 1,
                 "required": false
@@ -60,6 +69,10 @@
                 "items": {
                     "title": "Zone",
                     "type": "object",
+                    "required": [
+                        "index",
+                        "name"
+                    ],
                     "properties": {
                         "index": {
                             "title": "Zone index",

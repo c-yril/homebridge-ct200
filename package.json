@@ -1,46 +1,56 @@
 {
     "displayName": "Homebridge CT200",
     "name": "homebridge-ct200",
-    "version": "2.2.7",
+    "version": "3.0.0",
     "description": "Homebridge plugin to control Bosch CT200 smart thermostat.",
     "license": "MIT",
     "author": "Domas Kalinauskas",
+    "homepage": "https://github.com/lynxcs/homebridge-ct200#readme",
     "repository": {
         "type": "git",
-        "url": "https://github.com/lynxcs/homebridge-ct200.git"
+        "url": "git+https://github.com/lynxcs/homebridge-ct200.git"
     },
     "bugs": {
         "url": "https://github.com/lynxcs/homebridge-ct200/issues"
     },
     "engines": {
-        "node": ">=14.18.1",
-        "homebridge": ">=1.3.5"
+        "node": "^22.10.0 || ^24.0.0 || ^26.0.0",
+        "homebridge": "^1.8.0 || ^2.0.0"
     },
     "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist",
+        "config.schema.json"
+    ],
     "scripts": {
-        "lint": "eslint src/**.ts --max-warnings=0",
+        "lint": "eslint . --max-warnings=0",
         "watch": "npm run build && npm link && nodemon",
         "build": "rimraf ./dist && tsc",
         "prepublishOnly": "npm run lint && npm run build"
     },
     "keywords": [
         "homebridge-plugin",
+        "supports-hap",
         "homekit",
         "bosch",
-        "ct200"
+        "ct200",
+        "easycontrol",
+        "buderus",
+        "tc100"
     ],
     "dependencies": {
-        "bosch-xmpp": "^1.4.1"
+        "bosch-xmpp": "^2.0.0"
     },
     "devDependencies": {
-        "@types/node": "^16.10.9",
-        "@typescript-eslint/eslint-plugin": "^5.0.0",
-        "@typescript-eslint/parser": "^5.0.0",
-        "eslint": "^8.0.1",
-        "homebridge": "^1.3.5",
-        "nodemon": "^2.0.13",
-        "rimraf": "^3.0.2",
-        "ts-node": "^10.3.0",
-        "typescript": "^4.4.4"
+        "@eslint/js": "^10.0.1",
+        "@types/node": "^22.18.0",
+        "eslint": "^10.10.0",
+        "homebridge": "^2.4.0",
+        "nodemon": "^3.1.14",
+        "rimraf": "^6.1.3",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.70.0"
     }
 }

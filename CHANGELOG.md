@@ -7,6 +7,9 @@
 - The zone list the CT200 actually exposes is logged once per start (`id = "name" (temp)`),
   and a configured zone index that matches nothing on the device now produces a warning
   instead of a silently dead accessory.
+- `npm run zones` and `npm run bosch -- get <endpoint>` query the device from a checkout,
+  reading the credentials from a gitignored `.env` (see `.env.example`). Useful for finding
+  the zone ids to put in the config, and for seeing what the Bosch API actually answers.
 
 ### Changed
 

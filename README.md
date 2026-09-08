@@ -92,14 +92,31 @@ List of problems you might encounter and how to fix them
   certainly doesn't match a zone on the CT200, or nothing is bound to that zone. On start
   the plugin logs the zones the device actually exposes (`Zones reported by the CT200: 1 =
   "Salon" (21.5), ...`); use one of those ids as `index`. You can also ask the device
-  directly:
-  ```
-  $ npx bosch-xmpp easycontrol get /zones/list \
-      --serial=SERIAL --access-key=ACCESS_KEY --password=PASSWORD
-  ```
+  directly, see [Querying the device](#querying-the-device) below.
   With smart radiator valves each valve is a zone; the CT200 itself is the gateway and is
   not a zone of its own. A `temp` of `1000` means the CT200 has no reading for that zone.
 - **"SyntaxError ... Double-check login details!"** If you encounter this error, then most likely you are using the wrong password. You need to set and use the password that is in 'Settings' -> 'Personal' -> 'Change Password', not the BOSCH ID password. More details [here](https://github.com/lynxcs/homebridge-ct200/issues/22).
+
+#### Querying the device
+`bosch-xmpp`, which the plugin uses to talk to Bosch, ships a CLI. Copy `.env.example` to
+`.env` (gitignored) and fill in the three credentials, then:
+
+```
+$ npm run zones             # /zones/list: the ids, names and temperatures
+$ npm run bosch -- get /gateway/versionFirmware
+$ npm run bosch -- put /zones/zn1/manualTemperatureHeating '{"value":20.5}'
+```
+
+`npm run bosch` reads `.env` through dotenvx. Without a `.env`, pass the credentials as
+environment variables instead:
+
+```
+$ BOSCH_XMPP_SERIAL_NUMBER=... BOSCH_XMPP_ACCESS_KEY=... BOSCH_XMPP_PASSWORD=... \
+    npx bosch-xmpp easycontrol get /zones/list
+```
+
+Only one client can talk to the device at a time, so stop Homebridge (or the plugin's child
+bridge) first if a request hangs.
 
 #### Getting help
 If you need help troubleshooting, create an issue and I'll try to help you fix it.

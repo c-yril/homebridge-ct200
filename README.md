@@ -95,15 +95,20 @@ Any other merge is a no-op, so releasing is just bumping the version in the merg
 
 Authentication is [npm trusted publishing](https://docs.npmjs.com/trusted-publishers):
 the workflow proves who it is with a short-lived OIDC token minted by GitHub from its
-`id-token: write` permission. **There is no npm token to create, store or rotate**, and no
-repository secret — `GITHUB_TOKEN`, used to open the release, is provided by Actions
+`id-token: write` permission. Once it is set up there is **no npm token to create, store
+or rotate** — `GITHUB_TOKEN`, used to open the release, is provided by Actions
 automatically.
 
-One-time setup, in this order:
+Trusted publishing cannot create a package that does not exist yet, because it is
+configured on the package's own settings page. So the very first publish needs a token,
+and only that one:
 
-1. **Publish the first version by hand.** Trusted publishing is configured on a package's
-   own settings page, so it cannot create a package that does not exist yet. From a clean
-   checkout: `npm login`, then `npm publish` (`publishConfig.access` is already `public`).
+1. **Bootstrap the package.** Either publish by hand from a clean checkout (`npm login`,
+   then `npm publish` — `publishConfig.access` is already `public`), or add a granular
+   access token as a repository secret named `NPM_TOKEN` and let the workflow do it. The
+   token needs *Read and write* on the `@c-yril` scope, and **Bypass two-factor
+   authentication** enabled if the account has 2FA — an unattended publish cannot answer
+   an OTP prompt. The workflow uses the secret when it is present and OIDC when it is not.
 2. Go to `https://www.npmjs.com/package/@c-yril/homebridge-ct200/access` — the setting is
    there, not on the account-wide packages page.
 3. Under **Trusted Publisher**, choose GitHub Actions and fill in:
@@ -116,11 +121,12 @@ One-time setup, in this order:
 4. Optional, recommended once step 3 works: on the same page set the package to
    **Require two-factor authentication and disallow tokens**, which closes off token-based
    publishing entirely.
+5. **Delete the `NPM_TOKEN` secret** once step 3 is in place. The workflow falls back to
+   OIDC on its own, and leaving the token behind keeps a standing 2FA-bypassing credential
+   in the repository for no reason — which is exactly what npm's own UI warns about when
+   it points you at trusted publishing.
 
-Every release after that is tokenless. If npm ever prompts you to create a granular access
-token "for CI/CD", that is the path this setup deliberately avoids: such a token has to
-bypass 2FA, never expires on its own schedule, and is a standing credential in a
-repository secret.
+Every release after that is tokenless.
 
 ### Credits
 The Homebridge 2 / modern Node connection handling (retry on startup, automatic reconnect,

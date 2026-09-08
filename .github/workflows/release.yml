@@ -15,6 +15,12 @@ jobs:
   release:
     runs-on: ubuntu-latest
 
+    # Only whether the secret exists, never its value: the `secrets` context is
+    # not available in a step's `if`, and putting the token itself in the job
+    # env would hand it to `npm ci` and every build script it runs.
+    env:
+      HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
+
     permissions:
       # Creating the git tag and the GitHub release.
       contents: write
@@ -66,10 +72,21 @@ jobs:
         env:
           CI: true
 
-      # Authenticated through npm trusted publishing (OIDC): the id-token
-      # permission above is the whole credential, there is no npm token stored
-      # anywhere. Provenance is meant to be implicit here, but npm has shipped
-      # releases where it is not, so the flag stays.
+      # Bootstrap path only. Trusted publishing is configured on a package's
+      # own settings page, so it cannot create a package that does not exist
+      # yet: the first publish needs a token. Once the package exists and a
+      # trusted publisher is configured, delete the NPM_TOKEN secret and this
+      # step switches itself off.
+      - name: Authenticate with NPM_TOKEN
+        if: steps.version.outputs.publish == 'true' && env.HAS_NPM_TOKEN == 'true'
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm config set "//registry.npmjs.org/:_authToken" "$NPM_TOKEN"
+
+      # With no token in the npm config this authenticates through npm trusted
+      # publishing (OIDC), where the id-token permission above is the whole
+      # credential. Provenance is meant to be implicit there, but npm has
+      # shipped releases where it is not, so the flag stays either way.
       - name: Publish to npm
         if: steps.version.outputs.publish == 'true'
         run: npm publish --provenance

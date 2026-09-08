@@ -87,6 +87,12 @@ function combinations(accessKey, password) {
         // here - or the reverse, if it was set from a computer.
         { label: 'first letter capitalised', value: withFirstLetter(password, c => c.toUpperCase()) },
         { label: 'first letter lowercased', value: withFirstLetter(password, c => c.toLowerCase()) },
+        // Password fields often cap length or drop symbols on save, so the
+        // device can hold less than what was typed. These cover a device that
+        // stored a trimmed form of the password entered in the app.
+        { label: 'symbols removed', value: password.replace(/[^A-Za-z0-9]/g, '') },
+        { label: 'cut at first symbol', value: (password.match(/^[A-Za-z0-9]*/) || [''])[0] },
+        { label: 'truncated to 16', value: password.slice(0, 16) },
     ];
 
     // Each reading, then the same reading base64-encoded. bosch-xmpp briefly

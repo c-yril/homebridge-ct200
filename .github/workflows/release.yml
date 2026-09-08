@@ -18,18 +18,25 @@ jobs:
     permissions:
       # Creating the git tag and the GitHub release.
       contents: write
-      # npm provenance: lets npm attest that this tarball was built by this
-      # workflow, from this commit.
+      # npm trusted publishing: the OIDC token minted from this permission is
+      # what authenticates the publish, and what npm attests provenance with.
       id-token: write
 
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
+      # No registry-url on purpose: it makes setup-node write an .npmrc with
+      # `_authToken=${NODE_AUTH_TOKEN}`, which trusted publishing does not set,
+      # and an empty auth token makes the publish fail instead of falling back
+      # to OIDC. The default registry is npmjs.org anyway.
       - name: Use Node.js 22.x
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 22.x
-          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1+; Node 22 still bundles npm 10.
+      - name: Update npm
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm ci
@@ -59,11 +66,13 @@ jobs:
         env:
           CI: true
 
+      # Authenticated through npm trusted publishing (OIDC): the id-token
+      # permission above is the whole credential, there is no npm token stored
+      # anywhere. Provenance is meant to be implicit here, but npm has shipped
+      # releases where it is not, so the flag stays.
       - name: Publish to npm
         if: steps.version.outputs.publish == 'true'
         run: npm publish --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create the GitHub release
         if: steps.version.outputs.publish == 'true'

@@ -93,28 +93,34 @@ builds, runs `npm publish --provenance` and opens a GitHub release tagged `v<ver
 Any other merge is a no-op, so releasing is just bumping the version in the merged commit
 (`npm version patch|minor|major`) and updating `CHANGELOG.md`.
 
-The workflow needs one repository secret, `NPM_TOKEN`:
+Authentication is [npm trusted publishing](https://docs.npmjs.com/trusted-publishers):
+the workflow proves who it is with a short-lived OIDC token minted by GitHub from its
+`id-token: write` permission. **There is no npm token to create, store or rotate**, and no
+repository secret — `GITHUB_TOKEN`, used to open the release, is provided by Actions
+automatically.
 
-1. Sign in on [npmjs.com](https://www.npmjs.com/) with the account that owns the
-   `@c-yril` scope.
-2. Avatar menu -> **Access Tokens** -> **Generate New Token** -> **Granular Access Token**.
-3. Give it a name (e.g. `homebridge-ct200 release`), an expiry, and:
-   - **Packages and scopes**: *Read and write*. Choose **Only select packages and
-     scopes** and select the **`@c-yril` scope** rather than the package — a granular
-     token can only be restricted to packages that already exist, and scope permission
-     is also what allows the first publish to create the package.
-   - **Organizations**: no access needed.
-   - Leave the IP allow-list empty — GitHub-hosted runners have no fixed addresses.
-4. Copy the token once (npm shows it a single time). It looks like
-   `npm_YOUR_TOKEN_HERE`.
-5. In this repository: **Settings** -> **Secrets and variables** -> **Actions** ->
-   **New repository secret**, name `NPM_TOKEN`, paste the value.
+One-time setup, in this order:
 
-`GITHUB_TOKEN`, used to create the release, is provided by Actions automatically — there is
-nothing to configure for it.
+1. **Publish the first version by hand.** Trusted publishing is configured on a package's
+   own settings page, so it cannot create a package that does not exist yet. From a clean
+   checkout: `npm login`, then `npm publish` (`publishConfig.access` is already `public`).
+2. Go to `https://www.npmjs.com/package/@c-yril/homebridge-ct200/access` — the setting is
+   there, not on the account-wide packages page.
+3. Under **Trusted Publisher**, choose GitHub Actions and fill in:
+   - Organization or user: `c-yril`
+   - Repository: `homebridge-ct200`
+   - Workflow filename: `release.yml`
+   - Environment: leave empty
+   Every field is case-sensitive and must match exactly, `.yml` extension included; a
+   mismatch surfaces at publish time as `Unable to authenticate`.
+4. Optional, recommended once step 3 works: on the same page set the package to
+   **Require two-factor authentication and disallow tokens**, which closes off token-based
+   publishing entirely.
 
-Granular tokens expire. When one does, the publish step fails with `ENEEDAUTH` or `E401`;
-generate a new token and update the same secret.
+Every release after that is tokenless. If npm ever prompts you to create a granular access
+token "for CI/CD", that is the path this setup deliberately avoids: such a token has to
+bypass 2FA, never expires on its own schedule, and is a standing credential in a
+repository secret.
 
 ### Credits
 The Homebridge 2 / modern Node connection handling (retry on startup, automatic reconnect,

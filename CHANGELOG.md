@@ -15,8 +15,10 @@ older Node versions.
 - Type declarations for `bosch-xmpp`, so the client is no longer untyped `any`.
 - Published to npm as `@c-yril/homebridge-ct200`, so the plugin is installable from the
   Homebridge UI plugin browser.
-- Release workflow: a merge to `master` publishes to npm (with provenance) and opens a
-  GitHub release whenever `package.json` carries a version npm hasn't seen yet.
+- Release workflow: a merge to `master` publishes to npm and opens a GitHub release
+  whenever `package.json` carries a version npm hasn't seen yet. It authenticates with
+  npm trusted publishing (OIDC), so there is no npm token in a repository secret, and
+  npm attests provenance for the published tarball.
 - Dependabot config for npm dependencies and GitHub Actions.
 
 ### Changed

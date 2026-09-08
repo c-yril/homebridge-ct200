@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.0.1]
+
+No functional change to the plugin: release plumbing only, published to verify that the
+automated release path works end to end.
+
+### Changed
+
+- Releases publish through npm trusted publishing (OIDC) rather than a stored token.
+- The release workflow reads the registry directly, with a cache-buster, to decide whether
+  a version is new. `npm view` goes through a CDN that caches 404s for a package that did
+  not exist yet, and a stale one made the workflow try to republish an existing version.
+
 ## [3.0.0]
 
 Homebridge 2 support. This release requires **Node.js 22.10+** and drops support for

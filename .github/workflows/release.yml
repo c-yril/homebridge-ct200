@@ -47,20 +47,34 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Deliberately not `npm view`: npm's CDN caches 404s for a package that
+      # did not exist yet, and a stale one would report an already-published
+      # version as new. The publish then fails on EPUBLISHCONFLICT and reds out
+      # a merge that had nothing wrong with it. Reading the packument with a
+      # cache-buster is the same question asked of an uncached path.
       - name: Check whether this version is already published
         id: version
         run: |
-          name=$(node -p "require('./package.json').name")
-          version=$(node -p "require('./package.json').version")
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          node --input-type=module <<'JS' >> "$GITHUB_OUTPUT"
+          import { readFileSync } from 'node:fs';
 
-          if npm view "$name@$version" version > /dev/null 2>&1; then
-            echo "$name@$version is already on npm, nothing to release."
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "$name@$version is not published yet, releasing."
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          fi
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          const url = `https://registry.npmjs.org/${pkg.name.replace('/', '%2f')}?cb=${Date.now()}`;
+          const response = await fetch(url, { headers: { 'cache-control': 'no-cache' } });
+
+          let published = false;
+          if (response.ok) {
+              published = Boolean((await response.json()).versions?.[pkg.version]);
+          } else if (response.status !== 404) {
+              throw new Error(`registry returned ${response.status} for ${pkg.name}`);
+          }
+
+          console.error(published
+              ? `${pkg.name}@${pkg.version} is already on npm, nothing to release.`
+              : `${pkg.name}@${pkg.version} is not published yet, releasing.`);
+          console.log(`version=${pkg.version}`);
+          console.log(`publish=${!published}`);
+          JS
 
       - name: Lint the project
         if: steps.version.outputs.publish == 'true'

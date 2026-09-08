@@ -66,6 +66,29 @@ function tryDecrypt(ciphertext, accessKey, password) {
  * shown as a middle dot so the terminal stays intact, and nothing here reveals
  * the password or the key.
  */
+/**
+ * Which of the two failure modes a set of credentials hits, named. Decryption
+ * and JSON parsing fail for different reasons: a malformed reply body breaks
+ * AES itself (a response problem), while a wrong key sails through AES and only
+ * trips the JSON parse (a password problem). Returns '' when it actually works.
+ */
+function failureReason(ciphertext, accessKey, password) {
+    let plain;
+    try {
+        plain = decrypt(ciphertext, encryptionKey(accessKey, password));
+    } catch (e) {
+        return 'AES decryption failed (' + (e.message || e) + ') - the reply body is malformed, '
+            + 'not a password problem.';
+    }
+    try {
+        JSON.parse(plain);
+        return '';
+    } catch (e) {
+        return 'decrypted, but not JSON (' + e.constructor.name + ': ' + (e.message || e).split('\n')[0]
+            + ') - the key is wrong, i.e. the password.';
+    }
+}
+
 function previewDecrypt(ciphertext, accessKey, password) {
     let plain;
     try {
@@ -390,6 +413,7 @@ async function main() {
         console.log('BOSCH_XMPP_PASSWORD from the environment (length ' + fromEnv.length + ') does not '
             + 'decrypt the reply, in any casing of the access key.');
         console.log('  what it decrypts to: ' + previewDecrypt(ciphertext, testAccessKey, fromEnv));
+        console.log('  error type: ' + failureReason(ciphertext, testAccessKey, fromEnv));
 
         // Worth one more connection: it tells the user which credential to go
         // and re-read, instead of leaving both under suspicion.
@@ -410,6 +434,7 @@ async function main() {
         }
         console.log('No - length ' + candidate.length + ', ' + Buffer.byteLength(candidate) + ' bytes.');
         console.log('  what it decrypts to: ' + previewDecrypt(ciphertext, testAccessKey, candidate));
+        console.log('  error type: ' + failureReason(ciphertext, testAccessKey, candidate));
     }
 }
 

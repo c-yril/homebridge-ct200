@@ -1,17 +1,17 @@
 {
     "displayName": "Homebridge CT200",
-    "name": "homebridge-ct200",
+    "name": "@c-yril/homebridge-ct200",
     "version": "3.0.0",
-    "description": "Homebridge plugin to control Bosch CT200 smart thermostat.",
+    "description": "Homebridge plugin to control the Bosch EasyControl CT200 smart thermostat. Fork of homebridge-ct200 with Homebridge 2 support.",
     "license": "MIT",
     "author": "Domas Kalinauskas",
-    "homepage": "https://github.com/lynxcs/homebridge-ct200#readme",
+    "homepage": "https://github.com/c-yril/homebridge-ct200#readme",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/lynxcs/homebridge-ct200.git"
+        "url": "git+https://github.com/c-yril/homebridge-ct200.git"
     },
     "bugs": {
-        "url": "https://github.com/lynxcs/homebridge-ct200/issues"
+        "url": "https://github.com/c-yril/homebridge-ct200/issues"
     },
     "engines": {
         "node": "^22.10.0 || ^24.0.0 || ^26.0.0",
@@ -53,5 +53,11 @@
         "ts-node": "^10.9.2",
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.70.0"
+    },
+    "contributors": [
+        "Cyril Lacheretz"
+    ],
+    "publishConfig": {
+        "access": "public"
     }
 }

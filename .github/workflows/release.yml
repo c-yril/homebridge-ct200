@@ -1,0 +1,77 @@
+name: Release
+
+# Runs on every merge to the default branch, but only actually releases when
+# the version in package.json is one npm hasn't seen yet. Bumping the version
+# in the merged commit is what triggers a release; every other merge is a no-op.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      # Creating the git tag and the GitHub release.
+      contents: write
+      # npm provenance: lets npm attest that this tarball was built by this
+      # workflow, from this commit.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22.x
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check whether this version is already published
+        id: version
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          if npm view "$name@$version" version > /dev/null 2>&1; then
+            echo "$name@$version is already on npm, nothing to release."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "$name@$version is not published yet, releasing."
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Lint the project
+        if: steps.version.outputs.publish == 'true'
+        run: npm run lint
+
+      - name: Build the project
+        if: steps.version.outputs.publish == 'true'
+        run: npm run build
+        env:
+          CI: true
+
+      - name: Publish to npm
+        if: steps.version.outputs.publish == 'true'
+        run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create the GitHub release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "v$VERSION" \
+            --generate-notes

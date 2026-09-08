@@ -2,7 +2,8 @@
 
 ## Homebridge plugin for Bosch EasyControl CT200
 
-[![Build and Lint](https://github.com/lynxcs/homebridge-ct200/actions/workflows/build.yml/badge.svg)](https://github.com/lynxcs/homebridge-ct200/actions/workflows/build.yml)
+[![Build and Lint](https://github.com/c-yril/homebridge-ct200/actions/workflows/build.yml/badge.svg)](https://github.com/c-yril/homebridge-ct200/actions/workflows/build.yml)
+[![npm](https://img.shields.io/npm/v/@c-yril/homebridge-ct200)](https://www.npmjs.com/package/@c-yril/homebridge-ct200)
 
 ### Introduction
 This homebridge plugin exposes CT200 status allowing for heater control.
@@ -22,7 +23,7 @@ While I haven't tested this for myself, the plugin apparently also works with th
 To install homebridge ct200:
 - Install the plugin through Homebridge Config UI X or manually by:
 ```
-$ sudo npm -g i homebridge-ct200
+$ sudo npm -g i @c-yril/homebridge-ct200
 ```
 - Configure within Homebridge Config UI X or edit `config.json` manually e.g:
 ```
@@ -84,6 +85,36 @@ List of problems you might encounter and how to fix them
 
 #### Getting help
 If you need help troubleshooting, create an issue and I'll try to help you fix it.
+
+### Releasing (maintainers)
+Merging to `master` runs `.github/workflows/release.yml`. It compares the `version` in
+`package.json` with what is already on npm: if that exact version is unpublished it lints,
+builds, runs `npm publish --provenance` and opens a GitHub release tagged `v<version>`.
+Any other merge is a no-op, so releasing is just bumping the version in the merged commit
+(`npm version patch|minor|major`) and updating `CHANGELOG.md`.
+
+The workflow needs one repository secret, `NPM_TOKEN`:
+
+1. Sign in on [npmjs.com](https://www.npmjs.com/) with the account that owns the
+   `@c-yril` scope.
+2. Avatar menu -> **Access Tokens** -> **Generate New Token** -> **Granular Access Token**.
+3. Give it a name (e.g. `homebridge-ct200 release`), an expiry, and:
+   - **Packages and scopes**: *Read and write*. Choose **Only select packages and
+     scopes** and select the **`@c-yril` scope** rather than the package — a granular
+     token can only be restricted to packages that already exist, and scope permission
+     is also what allows the first publish to create the package.
+   - **Organizations**: no access needed.
+   - Leave the IP allow-list empty — GitHub-hosted runners have no fixed addresses.
+4. Copy the token once (npm shows it a single time). It looks like
+   `npm_YOUR_TOKEN_HERE`.
+5. In this repository: **Settings** -> **Secrets and variables** -> **Actions** ->
+   **New repository secret**, name `NPM_TOKEN`, paste the value.
+
+`GITHUB_TOKEN`, used to create the release, is provided by Actions automatically — there is
+nothing to configure for it.
+
+Granular tokens expire. When one does, the publish step fails with `ENEEDAUTH` or `E401`;
+generate a new token and update the same secret.
 
 ### Credits
 The Homebridge 2 / modern Node connection handling (retry on startup, automatic reconnect,

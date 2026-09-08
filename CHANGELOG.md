@@ -13,6 +13,11 @@ older Node versions.
   Homebridge stops.
 - `minStep` of 0.5 °C on the target temperature, matching what the Bosch API accepts.
 - Type declarations for `bosch-xmpp`, so the client is no longer untyped `any`.
+- Published to npm as `@c-yril/homebridge-ct200`, so the plugin is installable from the
+  Homebridge UI plugin browser.
+- Release workflow: a merge to `master` publishes to npm (with provenance) and opens a
+  GitHub release whenever `package.json` carries a version npm hasn't seen yet.
+- Dependabot config for npm dependencies and GitHub Actions.
 
 ### Changed
 

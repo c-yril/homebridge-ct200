@@ -107,8 +107,11 @@ $ npm run bosch -- get /gateway/versionFirmware
 $ npm run bosch -- put /zones/zn1/manualTemperatureHeating '{"value":20.5}'
 ```
 
-`npm run bosch` reads `.env` through dotenvx. Without a `.env`, pass the credentials as
-environment variables instead:
+`npm run bosch` reads the local env file through dotenvx, stripping the dashes the serial
+number and access key are printed with. A value containing `#`, a quote or a leading space
+has to be quoted there, otherwise dotenv truncates it: `BOSCH_XMPP_PASSWORD="a#b"`.
+A reply that fails to parse as JSON means the password is wrong - see the troubleshooting
+note above. To pass the credentials directly instead:
 
 ```
 $ BOSCH_XMPP_SERIAL_NUMBER=... BOSCH_XMPP_ACCESS_KEY=... BOSCH_XMPP_PASSWORD=... \

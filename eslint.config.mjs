@@ -32,4 +32,16 @@ export default tseslint.config(
             '@typescript-eslint/no-unused-vars': ['error', { 'caughtErrors': 'none' }],
         },
     },
+    {
+        // Maintenance scripts run under Node directly, not inside Homebridge.
+        files: ['scripts/**/*.mjs'],
+        languageOptions: {
+            globals: {
+                process: 'readonly',
+            },
+        },
+        rules: {
+            'no-console': 'off',
+        },
+    },
 );

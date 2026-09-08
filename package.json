@@ -25,7 +25,7 @@
     ],
     "scripts": {
         "lint": "eslint . --max-warnings=0",
-        "bosch": "dotenvx run --quiet -- bosch-xmpp easycontrol",
+        "bosch": "dotenvx run --quiet -- node scripts/bosch.mjs",
         "zones": "npm run bosch -- get /zones/list",
         "watch": "npm run build && npm link && nodemon",
         "build": "rimraf ./dist && tsc",

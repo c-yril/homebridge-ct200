@@ -10,6 +10,8 @@
 - `npm run zones` and `npm run bosch -- get <endpoint>` query the device from a checkout,
   reading the credentials from a gitignored `.env` (see `.env.example`). Useful for finding
   the zone ids to put in the config, and for seeing what the Bosch API actually answers.
+  Like the plugin, they accept the serial number and access key with the dashes they are
+  printed with; the CLI on its own rejects those with an XMPP `not-authorized`.
 
 ### Changed
 

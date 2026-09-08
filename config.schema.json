@@ -4,7 +4,7 @@
     "singular": true,
     "strictValidation": false,
     "headerDisplay": "Control a Bosch EasyControl CT200 (and compatible devices such as the Buderus TC100 v2) from HomeKit.",
-    "footerDisplay": "The password is the **device** password set in the EasyControl app under *Settings → Personal → Change Password* — not your Bosch SingleKey ID password. See the [troubleshooting notes](https://github.com/lynxcs/homebridge-ct200#troubleshooting) if you get login errors.",
+    "footerDisplay": "The password is the **device** password set in the EasyControl app under *Settings → Personal → Change Password* — not your Bosch SingleKey ID password. See the [troubleshooting notes](https://github.com/c-yril/homebridge-ct200#troubleshooting) if you get login errors.",
     "schema": {
         "type": "object",
         "required": [
@@ -21,7 +21,7 @@
                 },
                 "type": "string",
                 "default": "",
-                "description": "Found in Bosch EasyControl app (16 letters)",
+                "description": "Printed on the back of the device, and shown in the EasyControl app (16 letters).",
                 "minLength": 16,
                 "maxLength": 16,
                 "required": true
@@ -42,7 +42,7 @@
                     "type": "password"
                 },
                 "type": "string",
-                "description": "Bosch EasyControl device password (Settings -> Personal -> Change Password), not the Bosch SingleKey ID password",
+                "description": "Set it in the EasyControl app: Menu \u2192 Settings \u2192 Personal \u2192 Change password. This is not your Bosch SingleKey ID password.",
                 "default": "",
                 "required": true
             },

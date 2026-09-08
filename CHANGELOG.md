@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.0.2]
+
+### Changed
+
+- The config form now says where each credential comes from: the access key is printed on
+  the back of the device, and the password is the one set in the EasyControl app under
+  *Menu -> Settings -> Personal -> Change password* rather than the Bosch SingleKey ID
+  password. Using the wrong one is the most common cause of the `SyntaxError` at login.
+- Links in the config form and README point at this fork instead of the upstream repo.
+
 ## [3.0.1]
 
 No functional change to the plugin: release plumbing only, published to verify that the

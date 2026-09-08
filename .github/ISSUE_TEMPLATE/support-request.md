@@ -21,7 +21,9 @@ Show the Homebridge logs here, remove any sensitive information.
 **Plugin Config:**
 
 ```json
-Show your Homebridge config.json here, remove any sensitive information.
+Show your Homebridge config.json here. Replace the values of "serial", "access"
+and "password" with xxx before posting: together they are the login for your
+thermostat.
 ```
 
 **Screenshots:**

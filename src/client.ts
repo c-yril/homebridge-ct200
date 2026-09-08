@@ -147,15 +147,28 @@ async function buildClient(): Promise<void> {
     await stopClient(CURRENT_CLIENT);
     CURRENT_CLIENT = undefined;
 
-    const client = EasyControlClient({
-        serialNumber: CREDENTIALS.serialNumber,
-        accessKey: CREDENTIALS.accessKey,
-        password: CREDENTIALS.password,
-    });
+    // bosch-xmpp's constructor sets NODE_TLS_REJECT_UNAUTHORIZED to '0' to accept
+    // Bosch's self-signed certificate. That variable is process-global, so left
+    // alone it silently disables certificate validation for every other plugin
+    // sharing this Homebridge process. Node reads it per TLS connection, so
+    // restoring it once the handshake is done keeps the exemption to our own
+    // connect. Each retry builds a new client, which sets it again.
+    const previousTlsSetting = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+    let client: Client;
 
-    CURRENT_CLIENT = client;
-    attachClientHandlers(client);
-    await client.connect();
+    try {
+        client = EasyControlClient({
+            serialNumber: CREDENTIALS.serialNumber,
+            accessKey: CREDENTIALS.accessKey,
+            password: CREDENTIALS.password,
+        });
+
+        CURRENT_CLIENT = client;
+        attachClientHandlers(client);
+        await client.connect();
+    } finally {
+        restoreTlsVerification(previousTlsSetting);
+    }
 
     // bosch-xmpp stops @xmpp/client's auto-reconnect before the first connect
     // and never re-enables it. It is deliberately left stopped: @xmpp/reconnect
@@ -165,6 +178,15 @@ async function buildClient(): Promise<void> {
     // through ensureConnected() and its cooldown and retry delay.
 
     XMPP_CLIENT = client;
+}
+
+/** Puts NODE_TLS_REJECT_UNAUTHORIZED back the way the process had it. */
+function restoreTlsVerification(previous: string | undefined): void {
+    if (previous === undefined) {
+        delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+    } else {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = previous;
+    }
 }
 
 function attachClientHandlers(client: Client): void {
@@ -216,6 +238,14 @@ async function stopClient(client: Client | undefined): Promise<void> {
     if (!client) {
         return;
     }
+
+    // bosch-xmpp's keepalive reschedules itself forever and end() does not clear
+    // it, so an abandoned client would keep a timer (and itself) alive for the
+    // life of the process. It re-invokes the instance's own ping(), so replacing
+    // that stops the chain at the next tick.
+    client.ping = () => {
+        // Intentionally empty: breaks bosch-xmpp's self-rescheduling keepalive.
+    };
 
     try {
         client.client?.reconnect?.stop();

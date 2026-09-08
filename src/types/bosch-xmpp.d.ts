@@ -50,6 +50,11 @@ declare module 'bosch-xmpp' {
          */
         jid?: string;
         client?: XmppClient;
+        /**
+         * Self-rescheduling keepalive. bosch-xmpp never clears its timer, so a
+         * discarded client has to have this replaced to stop the chain.
+         */
+        ping: () => void;
         connect(): Promise<unknown>;
         end(): Promise<void>;
         get(uri: string): Promise<BoschResponse>;

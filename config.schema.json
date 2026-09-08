@@ -16,6 +16,9 @@
         "properties": {
             "access": {
                 "title": "Access Key",
+                "x-schema-form": {
+                    "type": "password"
+                },
                 "type": "string",
                 "default": "",
                 "description": "Found in Bosch EasyControl app (16 letters)",
@@ -35,6 +38,9 @@
             },
             "password": {
                 "title": "Password",
+                "x-schema-form": {
+                    "type": "password"
+                },
                 "type": "string",
                 "description": "Bosch EasyControl device password (Settings -> Personal -> Change Password), not the Bosch SingleKey ID password",
                 "default": "",

@@ -43,6 +43,30 @@ older Node versions.
 - Setting away mode no longer throws when the request returned no response.
 - No more `characteristic value 0 is not contained in valid values array` warning at
   startup for the target heating/cooling state.
+- Auto-reconnect is no longer delegated to `@xmpp/reconnect`, whose fixed 1s delay
+  turned any outage into one connection attempt per second. Recovery goes through the
+  same cooldown and retry delay as the initial connection.
+- `bosch-xmpp`'s keepalive timer is stopped when a client is discarded; it reschedules
+  itself indefinitely and `end()` does not clear it, so every reconnect leaked a timer.
+
+### Security
+
+- `NODE_TLS_REJECT_UNAUTHORIZED` is restored after the Bosch handshake. `bosch-xmpp`
+  sets it to `0` in its constructor to accept Bosch's self-signed certificate, and
+  that variable is process-global, so it was silently disabling certificate
+  validation for every other plugin sharing the Homebridge process.
+- The Bosch serial number is no longer published as the HomeKit `SerialNumber`
+  characteristic. It is one of the three login credentials, and that value is
+  persisted to `cachedAccessories` and readable by every paired controller.
+- The access key and password are marked as password fields in the config UI, and
+  the issue templates now name the three values to redact instead of a generic
+  "remove sensitive information".
+- The build workflow declares `permissions: contents: read` and pins its actions to
+  commit SHAs.
+
+Reviewed with a security pass over the 3.0.0 changes; the `qs`/`express` advisories
+reported by `npm audit` come from `bosch-xmpp`'s CLI bridge, which this plugin never
+loads.
 
 ### Credits
 

@@ -24,7 +24,10 @@ export class Thermostat {
         this.accessory.getService(this.platform.Service.AccessoryInformation)!
             .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Bosch')
             .setCharacteristic(this.platform.Characteristic.Model, 'CT200')
-            .setCharacteristic(this.platform.Characteristic.SerialNumber, this.platform.config['serial']);
+            // Not the Bosch serial number: it is one of the three login
+            // credentials, and this characteristic is persisted to
+            // cachedAccessories and readable by every paired controller.
+            .setCharacteristic(this.platform.Characteristic.SerialNumber, 'CT200-zone-' + accessory.context.id);
 
         this.service = this.accessory.getService(this.platform.Service.Thermostat)
             || this.accessory.addService(this.platform.Service.Thermostat);

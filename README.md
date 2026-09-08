@@ -71,6 +71,13 @@ short periods, so the plugin:
 A bad config or an unreachable backend therefore leaves the plugin loaded and idle rather
 than restarting the (child) bridge in a loop — check the Homebridge log for the reason.
 
+Bosch's XMPP server presents a self-signed certificate, so `bosch-xmpp` disables Node's
+certificate validation by setting `NODE_TLS_REJECT_UNAUTHORIZED=0`. That setting is
+process-wide, which would affect every other plugin in the same bridge, so this plugin
+restores the previous value as soon as the Bosch handshake is done. If you want the
+exemption confined to its own process entirely, run the plugin as a **child bridge**
+(Homebridge UI, plugin menu, *Bridge Settings*).
+
 #### Troubleshooting
 List of problems you might encounter and how to fix them
 - **"SyntaxError ... Double-check login details!"** If you encounter this error, then most likely you are using the wrong password. You need to set and use the password that is in 'Settings' -> 'Personal' -> 'Change Password', not the BOSCH ID password. More details [here](https://github.com/lynxcs/homebridge-ct200/issues/22).

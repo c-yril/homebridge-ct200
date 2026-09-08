@@ -20,7 +20,8 @@ export class AwaySwitch {
         this.accessory.getService(this.platform.Service.AccessoryInformation)!
             .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Bosch')
             .setCharacteristic(this.platform.Characteristic.Model, 'CT200')
-            .setCharacteristic(this.platform.Characteristic.SerialNumber, this.platform.config['serial']);
+            // Not the Bosch serial number, see Thermostat's accessory information.
+            .setCharacteristic(this.platform.Characteristic.SerialNumber, 'CT200-away');
 
         this.service = this.accessory.getService(this.platform.Service.Switch)
             || this.accessory.addService(this.platform.Service.Switch);

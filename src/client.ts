@@ -158,9 +158,11 @@ async function buildClient(): Promise<void> {
     await client.connect();
 
     // bosch-xmpp stops @xmpp/client's auto-reconnect before the first connect
-    // and never re-enables it, which would leave a dropped connection offline
-    // forever.
-    client.client?.reconnect?.start();
+    // and never re-enables it. It is deliberately left stopped: @xmpp/reconnect
+    // retries on a fixed 1s delay with no backoff, which turns any Bosch outage
+    // into one connection attempt per second from every install at once.
+    // Recovery is driven by the 'disconnect' handler below instead, which goes
+    // through ensureConnected() and its cooldown and retry delay.
 
     XMPP_CLIENT = client;
 }
@@ -204,7 +206,9 @@ function attachClientHandlers(client: Client): void {
             return;
         }
 
-        globalLogger.warn('XMPP client disconnected, waiting for automatic reconnect');
+        globalLogger.warn('XMPP client disconnected, reconnecting');
+        ensureConnected('connection dropped')
+            .catch(error => globalLogger.error('Reconnect failed: ' + errorMessage(error)));
     }) as (...args: never[]) => void);
 }
 
@@ -236,7 +240,12 @@ function shouldReconnect(error: unknown): boolean {
         || message.includes('econnreset')
         || message.includes('epipe')
         || message.includes('not connected')
-        || message.includes('connection closed');
+        || message.includes('connection closed')
+        || message.includes('econnrefused')
+        || message.includes('enotfound')
+        || message.includes('ehostunreach')
+        || message.includes('enetunreach')
+        || message.includes('socket hang up');
 }
 
 function logRequestError(error: unknown): void {

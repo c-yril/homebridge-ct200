@@ -1,0 +1,54 @@
+version: 2
+
+updates:
+  # Plugin dependencies. `bosch-xmpp` and `homebridge` are deliberately left
+  # out of the group below so they each get their own pull request: one is the
+  # only runtime dependency, the other decides which Homebridge versions this
+  # plugin still builds against.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      dev-tooling:
+        applies-to: version-updates
+        patterns:
+          - "@eslint/*"
+          - "@types/*"
+          - eslint
+          - nodemon
+          - rimraf
+          - ts-node
+          - typescript
+          - typescript-eslint
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Node 22 is the oldest runtime supported in "engines", so the typings
+      # have to stay on the matching major. A newer major would type-check
+      # against APIs that are missing on the oldest version users can run.
+      - dependency-name: "@types/node"
+        update-types:
+          - version-update:semver-major
+
+  # Keeps actions/checkout and actions/setup-node current in build.yml.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: ci

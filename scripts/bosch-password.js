@@ -58,6 +58,27 @@ function tryDecrypt(ciphertext, accessKey, password) {
     }
 }
 
+/**
+ * What one set of credentials turns the reply into, rendered for a human. A
+ * correct key yields readable JSON ({"id":"/gateway/...). AES-ECB is
+ * all-or-nothing, so a wrong key gives uniformly random bytes with no
+ * resemblance to JSON - there is no "almost right". Non-printable bytes are
+ * shown as a middle dot so the terminal stays intact, and nothing here reveals
+ * the password or the key.
+ */
+function previewDecrypt(ciphertext, accessKey, password) {
+    let plain;
+    try {
+        plain = decrypt(ciphertext, encryptionKey(accessKey, password));
+    } catch (e) {
+        return '(could not decrypt at all: ' + (e.message || e) + ')';
+    }
+    const readable = plain.replace(/[^\x20-\x7e]/g, '\u00b7').slice(0, 72);
+    const looksLikeJson = plain.trimStart().startsWith('{');
+    return readable + (plain.length > 72 ? '...' : '')
+        + (looksLikeJson ? '  <- starts like JSON, key is close' : '  <- random bytes, key is wrong');
+}
+
 /** The password with its first character recased; unchanged when empty. */
 function withFirstLetter(password, transform) {
     return password ? transform(password[0]) + password.slice(1) : password;
@@ -368,6 +389,7 @@ async function main() {
         }
         console.log('BOSCH_XMPP_PASSWORD from the environment (length ' + fromEnv.length + ') does not '
             + 'decrypt the reply, in any casing of the access key.');
+        console.log('  what it decrypts to: ' + previewDecrypt(ciphertext, testAccessKey, fromEnv));
 
         // Worth one more connection: it tells the user which credential to go
         // and re-read, instead of leaving both under suspicion.
@@ -387,6 +409,7 @@ async function main() {
             break;
         }
         console.log('No - length ' + candidate.length + ', ' + Buffer.byteLength(candidate) + ' bytes.');
+        console.log('  what it decrypts to: ' + previewDecrypt(ciphertext, testAccessKey, candidate));
     }
 }
 

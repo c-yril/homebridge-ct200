@@ -1,6 +1,12 @@
 # Ignore compiled code
 dist
 
+# Claude Code local state. A shared settings.json or skills/ can still be
+# committed deliberately if it is ever worth sharing.
+.claude/settings.local.json
+.claude/.cc-writes/
+.claude/plans/
+
 # ------------- Defaults ------------- #
 
 # Logs
@@ -73,9 +79,11 @@ web_modules/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
+# dotenv environment variables file. .env.example is the committed template;
+# every other variant holds real credentials.
 .env
-.env.test
+.env.*
+!.env.example
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

@@ -260,10 +260,11 @@ export class CT200Platform implements DynamicPlatformPlugin {
         }
 
         // Both keys are printed in dash-separated groups on the back of the
-        // device, so a value pasted as printed carries separators the Bosch
-        // backend rejects. Accept it either way rather than making the user
-        // spot that. The password is left untouched: it is user-chosen, and a
-        // dash in it is a real character.
+        // device. bosch-xmpp only strips those from the access key; the serial
+        // number reaches the XMPP login verbatim and a pasted one is rejected
+        // there. Accept either form rather than making the user spot that. The
+        // password is left untouched: it is user-chosen, and a dash in it is a
+        // real character.
         const serial = withoutSeparators(config['serial']);
         const access = withoutSeparators(config['access']);
 

@@ -38,6 +38,8 @@ export default tseslint.config(
         languageOptions: {
             globals: {
                 process: 'readonly',
+                console: 'readonly',
+                Buffer: 'readonly',
             },
         },
         rules: {

@@ -3,7 +3,9 @@
 ## [3.1.0]
 
 ### Added
-
+- `npm run password`, which tells you which device password the CT200 is actually
+  encrypting with. It fetches one encrypted reply and tests candidates against it offline,
+  so a wrong password is a one-line answer instead of a `is not valid JSON` guessing game.
 - The zone list the CT200 actually exposes is logged once per start (`id = "name" (temp)`),
   and a configured zone index that matches nothing on the device now produces a warning
   instead of a silently dead accessory.

@@ -95,7 +95,13 @@ List of problems you might encounter and how to fix them
   directly, see [Querying the device](#querying-the-device) below.
   With smart radiator valves each valve is a zone; the CT200 itself is the gateway and is
   not a zone of its own. A `temp` of `1000` means the CT200 has no reading for that zone.
-- **"SyntaxError ... Double-check login details!"** If you encounter this error, then most likely you are using the wrong password. You need to set and use the password that is in 'Settings' -> 'Personal' -> 'Change Password', not the BOSCH ID password. More details [here](https://github.com/lynxcs/homebridge-ct200/issues/22).
+- **"SyntaxError ... Double-check login details!"**, or `... is not valid JSON` from the CLI.
+  The connection itself is fine - the login only uses the serial number and the access key -
+  but the reply cannot be decrypted, which means the `password` is wrong. It is the *device*
+  password, set in the EasyControl app under *Menu -> Settings -> Personal -> Change password*,
+  **not** your Bosch SingleKey ID (`singlekey-id.com`) password. `npm run password` tells you
+  which one the device is actually using, see below. More details
+  [here](https://github.com/lynxcs/homebridge-ct200/issues/22).
 
 #### Querying the device
 `bosch-xmpp`, which the plugin uses to talk to Bosch, ships a CLI. Copy `.env.example` to
@@ -108,10 +114,126 @@ $ npm run bosch -- put /zones/zn1/manualTemperatureHeating '{"value":20.5}'
 ```
 
 `npm run bosch` reads the local env file through dotenvx, stripping the dashes the serial
-number and access key are printed with. A value containing `#`, a quote or a leading space
-has to be quoted there, otherwise dotenv truncates it: `BOSCH_XMPP_PASSWORD="a#b"`.
-A reply that fails to parse as JSON means the password is wrong - see the troubleshooting
-note above. To pass the credentials directly instead:
+number and access key are printed with. **Quote the password with single quotes**:
+unquoted, dotenv cuts the value at a `#` and drops surrounding spaces, and double quotes let
+`# Homebridge CT200
+
+## Homebridge plugin for Bosch EasyControl CT200
+
+[![Build and Lint](https://github.com/c-yril/homebridge-ct200/actions/workflows/build.yml/badge.svg)](https://github.com/c-yril/homebridge-ct200/actions/workflows/build.yml)
+[![npm](https://img.shields.io/npm/v/@c-yril/homebridge-ct200)](https://www.npmjs.com/package/@c-yril/homebridge-ct200)
+
+### Introduction
+This homebridge plugin exposes CT200 status allowing for heater control.
+
+**Note:** The thermostat accessory in Home app shows a single button to change the control mode. On is the same as 'Auto' mode in the bosch EasyControl App. Off is the same as 'manual'.
+
+Changing the temperature when set on 'Auto', only changes the setpoint until the next defined setpoint is reached.
+
+### Requirements
+- **Homebridge** 1.8 or later, including **Homebridge 2.x**
+- **Node.js** 22.10, 24 or 26
+
+### Compatibility
+While I haven't tested this for myself, the plugin apparently also works with the Buderus TC100 v2 as well as bosch radiator valves, and probably other smart thermostats that make use of boschs' EasyControl API.
+
+### Installation
+To install homebridge ct200:
+- Install the plugin through Homebridge Config UI X or manually by:
+```
+$ sudo npm -g i @c-yril/homebridge-ct200
+```
+- Configure within Homebridge Config UI X or edit `config.json` manually e.g:
+```
+"platforms": [
+    {
+        "access": "ACCESS_KEY",
+        "serial": "SERIAL_KEY",
+        "password": "PASSWORD",
+        "zones": [
+            {
+                "index": 1,
+                "name": "NAME1"
+            },
+            {
+                "index": 2,
+                "name": "NAME2"
+            }
+        ],
+        "platform": "CT200"
+    }
+]
+```
+#### Configuration settings
+- `access` is the access key, printed on the back of the device and shown in the bosch
+  EasyControl app (16 letters)
+- `serial` is the serial key, printed on the back of the device and shown in the bosch
+  EasyControl app (9 digits)
+- `password` is the device password. Set it in the EasyControl app under
+  *Menu -> Settings -> Personal -> Change password*; it is **not** your Bosch SingleKey ID
+  password.
+
+Both keys are printed in dash-separated groups; the dashes are ignored, so either form
+works.
+For each device you want to control, add a zone, where:
+- `index` is the zone id (from 1 to X)
+- `name` is what will show up in the Home app.
+
+##### Optional settings
+- `away` if set to false, removes the `Away` mode switch. (default: true)
+- `zoneInterval` how often to query all zones (in minutes, default: 2)
+- `auxInterval` how often to refresh humidity, localization, away state and per-zone targets (in minutes, default: 5)
+
+### How it talks to Bosch
+The Bosch backend only accepts one request at a time and is regularly unreachable for
+short periods, so the plugin:
+
+- serialises every GET/PUT into a single queue;
+- answers HomeKit reads from a cached state, refreshed on the intervals above, instead of
+  hitting the network each time the Home app is opened;
+- retries the initial connection instead of exiting, and rebuilds the XMPP client when the
+  stream dies (timeouts, resets, destroyed streams).
+
+A bad config or an unreachable backend therefore leaves the plugin loaded and idle rather
+than restarting the (child) bridge in a loop — check the Homebridge log for the reason.
+
+Bosch's XMPP server presents a self-signed certificate, so `bosch-xmpp` disables Node's
+certificate validation by setting `NODE_TLS_REJECT_UNAUTHORIZED=0`. That setting is
+process-wide, which would affect every other plugin in the same bridge, so this plugin
+restores the previous value as soon as the Bosch handshake is done. If you want the
+exemption confined to its own process entirely, run the plugin as a **child bridge**
+(Homebridge UI, plugin menu, *Bridge Settings*).
+
+#### Troubleshooting
+List of problems you might encounter and how to fix them
+- **A zone shows 0 °C, or stays unresponsive in the Home app.** Its `index` almost
+  certainly doesn't match a zone on the CT200, or nothing is bound to that zone. On start
+  the plugin logs the zones the device actually exposes (`Zones reported by the CT200: 1 =
+  "Salon" (21.5), ...`); use one of those ids as `index`. You can also ask the device
+  directly, see [Querying the device](#querying-the-device) below.
+  With smart radiator valves each valve is a zone; the CT200 itself is the gateway and is
+  not a zone of its own. A `temp` of `1000` means the CT200 has no reading for that zone.
+- **"SyntaxError ... Double-check login details!"**, or `... is not valid JSON` from the CLI.
+  The connection itself is fine - the login only uses the serial number and the access key -
+  but the reply cannot be decrypted, which means the `password` is wrong. It is the *device*
+  password, set in the EasyControl app under *Menu -> Settings -> Personal -> Change password*,
+  **not** your Bosch SingleKey ID (`singlekey-id.com`) password. `npm run password` tells you
+  which one the device is actually using, see below. More details
+  [here](https://github.com/lynxcs/homebridge-ct200/issues/22).
+
+#### Querying the device
+`bosch-xmpp`, which the plugin uses to talk to Bosch, ships a CLI. Copy `.env.example` to
+`.env` (gitignored) and fill in the three credentials, then:
+
+```
+$ npm run zones             # /zones/list: the ids, names and temperatures
+$ npm run bosch -- get /gateway/versionFirmware
+$ npm run bosch -- put /zones/zn1/manualTemperatureHeating '{"value":20.5}'
+```
+
+ and `\` be interpreted - so `BOSCH_XMPP_PASSWORD='a#b$c'` is the only form that survives
+intact. A reply that fails to parse as JSON means the password is wrong - see the
+troubleshooting note above. To pass the credentials directly instead:
 
 ```
 $ BOSCH_XMPP_SERIAL_NUMBER=... BOSCH_XMPP_ACCESS_KEY=... BOSCH_XMPP_PASSWORD=... \
@@ -120,6 +242,20 @@ $ BOSCH_XMPP_SERIAL_NUMBER=... BOSCH_XMPP_ACCESS_KEY=... BOSCH_XMPP_PASSWORD=...
 
 Only one client can talk to the device at a time, so stop Homebridge (or the plugin's child
 bridge) first if a request hangs.
+
+#### Checking the device password
+If a request comes back as `... is not valid JSON`, the password is the only thing it can be.
+`npm run password` fetches one encrypted reply, then tests candidates against it offline:
+
+```
+$ npm run password
+Fetching one encrypted reply from the CT200...
+BOSCH_XMPP_PASSWORD from the environment is wrong (length 16).
+Password to try (empty to quit):
+```
+
+Candidates are typed at a hidden prompt; only their length and the verdict are printed, and
+the device is contacted once, not once per guess.
 
 #### Getting help
 If you need help troubleshooting, create an issue and I'll try to help you fix it.

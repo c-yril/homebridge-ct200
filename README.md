@@ -49,10 +49,14 @@ $ sudo npm -g i @c-yril/homebridge-ct200
 #### Configuration settings
 - `access` is the access key, printed on the back of the device and shown in the bosch
   EasyControl app (16 letters)
-- `serial` is the serial key, found in the bosch EasyControl app (9 digits, no dashes)
+- `serial` is the serial key, printed on the back of the device and shown in the bosch
+  EasyControl app (9 digits)
 - `password` is the device password. Set it in the EasyControl app under
   *Menu -> Settings -> Personal -> Change password*; it is **not** your Bosch SingleKey ID
   password.
+
+Both keys are printed in dash-separated groups; the dashes are ignored, so either form
+works.
 For each device you want to control, add a zone, where:
 - `index` is the zone id (from 1 to X)
 - `name` is what will show up in the Home app.

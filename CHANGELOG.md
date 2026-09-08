@@ -10,6 +10,11 @@
   password. Using the wrong one is the most common cause of the `SyntaxError` at login.
 - Links in the config form and README point at this fork instead of the upstream repo.
 
+### Fixed
+
+- The access key and serial key can now be pasted as they are printed on the device: the
+  dashes are stripped before connecting, and the config form no longer rejects them.
+
 ## [3.0.1]
 
 No functional change to the plugin: release plumbing only, published to verify that the

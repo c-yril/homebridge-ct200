@@ -21,19 +21,20 @@
                 },
                 "type": "string",
                 "default": "",
-                "description": "Printed on the back of the device, and shown in the EasyControl app (16 letters).",
+                "description": "Printed on the back of the device, and shown in the EasyControl app (16 letters). Dashes are ignored, so it can be pasted as printed.",
+                "pattern": "^[A-Za-z0-9-]*$",
                 "minLength": 16,
-                "maxLength": 16,
+                "maxLength": 24,
                 "required": true
             },
             "serial": {
                 "title": "Serial key",
                 "type": "string",
-                "pattern": "^[0-9]*$",
-                "description": "Found in Bosch EasyControl app (9 digits, no dashes).",
+                "pattern": "^[0-9-]*$",
+                "description": "Printed on the back of the device, and shown in the EasyControl app (9 digits). Dashes are ignored, so it can be pasted as printed.",
                 "default": "",
                 "minLength": 9,
-                "maxLength": 9,
+                "maxLength": 14,
                 "required": true
             },
             "password": {

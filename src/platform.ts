@@ -74,6 +74,11 @@ function asNumber(value: unknown): number | undefined {
     return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+/** Drops the dashes and spaces a key is printed with. */
+function withoutSeparators(value: unknown): string {
+    return String(value).replace(/[\s-]/g, '');
+}
+
 export function processResponse(response: BoschResponse) {
     globalLogger.debug('Processing ' + response['id']);
 
@@ -200,6 +205,14 @@ export class CT200Platform implements DynamicPlatformPlugin {
             return;
         }
 
+        // Both keys are printed in dash-separated groups on the back of the
+        // device, so a value pasted as printed carries separators the Bosch
+        // backend rejects. Accept it either way rather than making the user
+        // spot that. The password is left untouched: it is user-chosen, and a
+        // dash in it is a real character.
+        const serial = withoutSeparators(config['serial']);
+        const access = withoutSeparators(config['access']);
+
         this.api.on(APIEvent.DID_FINISH_LAUNCHING, () => {
             log.debug('Executed didFinishLaunching callback');
 
@@ -213,7 +226,7 @@ export class CT200Platform implements DynamicPlatformPlugin {
             this.log.debug('Finished initializing platform:', this.config.platform);
             this.startPolling();
 
-            connectAPI(config['serial'], config['access'], config['password'])
+            connectAPI(serial, access, config['password'])
                 .then(() => {
                     getEndpoint(EP_ZONES);
                     this.refreshCachedState();

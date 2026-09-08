@@ -76,12 +76,19 @@ export class Thermostat {
 
     async getCurrentTemp(): Promise<CharacteristicValue> {
         const zone = globalState.zones.get(this.id);
-        if (zone) {
-            return zone.currentTemp;
-        } else {
+        if (!zone) {
             this.platform.log.error('Zone undefined while getting current temperature!');
             throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
         }
+
+        // Before the first usable reading there is nothing honest to answer.
+        // Reporting a placeholder here is what makes an unbound or mis-indexed
+        // zone show up in the Home app as a room at 0 degrees.
+        if (zone.currentTemp === undefined) {
+            throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+        }
+
+        return zone.currentTemp;
     }
 
     async getTargetTemp(): Promise<CharacteristicValue> {

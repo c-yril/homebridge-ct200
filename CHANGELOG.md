@@ -1,6 +1,12 @@
 # Changelog
 
-## [3.0.2]
+## [3.1.0]
+
+### Added
+
+- The zone list the CT200 actually exposes is logged once per start (`id = "name" (temp)`),
+  and a configured zone index that matches nothing on the device now produces a warning
+  instead of a silently dead accessory.
 
 ### Changed
 
@@ -14,6 +20,10 @@
 
 - The access key and serial key can now be pasted as they are printed on the device: the
   dashes are stripped before connecting, and the config form no longer rejects them.
+- A zone with no reading no longer shows up in the Home app as a room at 0 °C. The CT200
+  answers 1000 for a zone with no thermostat or valve bound to it, and the plugin used to
+  keep publishing its placeholder 0 instead. It now reports the temperature as unavailable
+  and logs why.
 
 ## [3.0.1]
 

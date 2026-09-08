@@ -88,6 +88,17 @@ exemption confined to its own process entirely, run the plugin as a **child brid
 
 #### Troubleshooting
 List of problems you might encounter and how to fix them
+- **A zone shows 0 °C, or stays unresponsive in the Home app.** Its `index` almost
+  certainly doesn't match a zone on the CT200, or nothing is bound to that zone. On start
+  the plugin logs the zones the device actually exposes (`Zones reported by the CT200: 1 =
+  "Salon" (21.5), ...`); use one of those ids as `index`. You can also ask the device
+  directly:
+  ```
+  $ npx bosch-xmpp easycontrol get /zones/list \
+      --serial=SERIAL --access-key=ACCESS_KEY --password=PASSWORD
+  ```
+  With smart radiator valves each valve is a zone; the CT200 itself is the gateway and is
+  not a zone of its own. A `temp` of `1000` means the CT200 has no reading for that zone.
 - **"SyntaxError ... Double-check login details!"** If you encounter this error, then most likely you are using the wrong password. You need to set and use the password that is in 'Settings' -> 'Personal' -> 'Change Password', not the BOSCH ID password. More details [here](https://github.com/lynxcs/homebridge-ct200/issues/22).
 
 #### Getting help

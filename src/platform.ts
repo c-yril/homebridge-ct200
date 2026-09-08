@@ -18,7 +18,10 @@ import { connectAPI, disconnectAPI, getEndpoint } from './client';
 // All the info needed to describe a Zone
 class Zone {
     id = 1;
-    currentTemp = 0;
+    // Undefined until /zones/list reports a usable reading. Seeding it with a
+    // number would publish an invented temperature to HomeKit, which reads as a
+    // freezing room rather than as "no reading yet".
+    currentTemp: number | undefined = undefined;
     wantedTemp = 10;
     state = 0;
     mode = 1;
@@ -74,6 +77,42 @@ function asNumber(value: unknown): number | undefined {
     return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+/**
+ * The Bosch API reports 1000 for a zone whose temperature it does not have -
+ * a valve that has not reported yet, or a zone with no sensor bound to it.
+ * Anything outside a plausible room temperature is that sentinel, not a
+ * reading, and publishing it would trip HomeKit's own bounds.
+ */
+function isPlausibleTemperature(value: number): boolean {
+    return Number.isFinite(value) && value > -50 && value < 100;
+}
+
+// Diagnostics are reported once rather than on every poll: the zone list is
+// re-read every couple of minutes and a per-poll warning would bury the log.
+let zoneListReported = false;
+const zonesWithoutTemperature = new Set<number>();
+
+/**
+ * Logs what the CT200 actually exposes, and which configured zones do not
+ * exist on it. A zone index that matches nothing is silent otherwise: the
+ * accessory is created from the config alone, and simply never updates.
+ */
+function reportZoneList(zones: ResponseZone[]): void {
+    if (zoneListReported) {
+        return;
+    }
+    zoneListReported = true;
+
+    globalLogger.info('Zones reported by the CT200: '
+        + zones.map(zone => zone.id + ' = "' + zone.name + '" (' + zone.temp + ')').join(', '));
+
+    const missing = [...globalState.zones.keys()].filter(id => !zones.some(zone => zone.id === id));
+    if (missing.length > 0) {
+        globalLogger.warn('Configured zone index ' + missing.join(', ') + ' does not exist on the CT200. '
+            + 'Those accessories will never get a temperature - use one of the indexes listed above.');
+    }
+}
+
 /** Drops the dashes and spaces a key is printed with. */
 function withoutSeparators(value: unknown): string {
     return String(value).replace(/[\s-]/g, '');
@@ -84,16 +123,31 @@ export function processResponse(response: BoschResponse) {
 
     switch (response['id']) {
         case EP_ZONES: {
-            (response['value'] as ResponseZone[]).forEach((zone: ResponseZone) => {
+            const zones = response['value'] as ResponseZone[];
+            reportZoneList(zones);
+
+            zones.forEach((zone: ResponseZone) => {
                 const savedZone = globalState.zones.get(zone.id);
                 if (savedZone) {
-                    savedZone.currentTemp = zone.temp <= 100 ? zone.temp : savedZone.currentTemp;
+                    const temperature = asNumber(zone.temp);
+                    if (temperature !== undefined && isPlausibleTemperature(temperature)) {
+                        savedZone.currentTemp = temperature;
+                        zonesWithoutTemperature.delete(zone.id);
+                    } else if (!zonesWithoutTemperature.has(zone.id)) {
+                        zonesWithoutTemperature.add(zone.id);
+                        globalLogger.warn('Zone ' + zone.id + ' ("' + zone.name + '") reports no usable '
+                            + 'temperature (' + zone.temp + '). This is what the CT200 sends for a zone with '
+                            + 'no thermostat or valve bound to it.');
+                    }
+
                     savedZone.state = zone.status.includes('heat') ? 1 : 0;
 
                     const thermostat = savedZone.accessory.getService((hapService.Thermostat));
                     if (thermostat) {
-                        thermostat.updateCharacteristic(hapCharacteristic.CurrentTemperature,
-                            savedZone.currentTemp);
+                        if (savedZone.currentTemp !== undefined) {
+                            thermostat.updateCharacteristic(hapCharacteristic.CurrentTemperature,
+                                savedZone.currentTemp);
+                        }
 
                         thermostat.updateCharacteristic(hapCharacteristic.CurrentHeatingCoolingState,
                             savedZone.state);

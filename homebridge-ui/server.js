@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 const CLIENT_ID = 'BEAE0439-49D3-41B5-83D1-59B0971793F4';
 const AUTHORIZE_URL = 'https://singlekey-id.com/auth/connect/authorize';
 const TOKEN_URL = 'https://singlekey-id.com/auth/connect/token';
+const REVOCATION_URL = 'https://singlekey-id.com/auth/connect/revocation';
 // A custom app scheme: Bosch fixed it, so the browser cannot hand the redirect
 // back to us automatically. This is the one unavoidable copy-paste in the flow.
 const REDIRECT_URI = 'com.bosch.rrc://app/oidc_redirect';
@@ -138,7 +139,35 @@ class UiServer extends HomebridgePluginUiServer {
                 { status: 502 });
         }
 
+        // If this is a re-login, revoke the token it replaces so a potentially
+        // leaked one stops working immediately instead of lingering until it
+        // expires. Best effort — the new login already succeeded.
+        const previous = payload && payload.previousRefreshToken ? String(payload.previousRefreshToken) : '';
+        if (previous && previous !== tokens.refresh_token) {
+            await revoke(previous);
+        }
+
         return { refreshToken: tokens.refresh_token, scope: tokens.scope };
+    }
+}
+
+/**
+ * Best-effort revocation of a superseded refresh token. Failures are swallowed:
+ * revocation is a courtesy, and the token expires on its own regardless.
+ */
+async function revoke(refreshToken) {
+    try {
+        await fetch(REVOCATION_URL, {
+            method: 'POST',
+            headers: { 'content-type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                token: refreshToken,
+                token_type_hint: 'refresh_token',
+                client_id: CLIENT_ID,
+            }),
+        });
+    } catch {
+        // Network or endpoint error — ignore.
     }
 }
 

@@ -142,13 +142,17 @@
                 setStatus('Connecting…');
                 homebridge.showSpinner();
                 try {
+                    // Read the existing config first so the server can revoke the
+                    // token this login replaces.
+                    const configs = await homebridge.getPluginConfig();
+                    const config = configs && configs.length ? configs[0] : { platform: 'CT200' };
+
                     const result = await homebridge.request('/exchange', {
                         redirectUrl: redirectInput.value.trim(),
+                        previousRefreshToken: config.refreshToken || undefined,
                     });
 
                     // Merge the refresh token into the existing config and persist it.
-                    const configs = await homebridge.getPluginConfig();
-                    const config = configs && configs.length ? configs[0] : { platform: 'CT200' };
                     config.platform = config.platform || 'CT200';
                     config.refreshToken = result.refreshToken;
                     await homebridge.updatePluginConfig([config]);

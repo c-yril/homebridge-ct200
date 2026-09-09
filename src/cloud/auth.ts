@@ -1,5 +1,6 @@
-import { readFileSync, writeFileSync, existsSync, chmodSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, chmodSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { globalLogger } from '../platform';
 
 // SingleKey ID OAuth2, lifted from the EasyControl app's auth_config_prod.json.
@@ -27,9 +28,16 @@ interface StoredTokens {
     refresh_token: string;
     access_token?: string;
     expires_at?: number; // epoch ms
-    // The config refresh token this cache was seeded from. A change means the
-    // user pasted a new token / logged in again, so the cache is discarded.
+    // A sha256 hash of the config refresh token this cache was seeded from. A
+    // change means the user pasted a new token / logged in again, so the cache
+    // is discarded. Hashed, not stored verbatim, to avoid a second copy of the
+    // secret on disk.
     seed: string;
+}
+
+/** Fingerprints the config refresh token for cache-invalidation comparisons. */
+function seedHash(refreshToken: string): string {
+    return createHash('sha256').update(refreshToken).digest('hex');
 }
 
 let TOKEN_FILE = '';
@@ -40,12 +48,16 @@ function persist(): void {
     if (!tokens) {
         return;
     }
-    writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2));
+    // Write owner-only to a temp file, then atomically rename into place, so a
+    // concurrent reader never sees a world-readable or half-written token file.
+    const tmp = TOKEN_FILE + '.tmp';
+    writeFileSync(tmp, JSON.stringify(tokens, null, 2), { mode: 0o600 });
     try {
-        chmodSync(TOKEN_FILE, 0o600);
+        chmodSync(tmp, 0o600);
     } catch {
         // Best effort: some filesystems (e.g. on Windows) don't support chmod.
     }
+    renameSync(tmp, TOKEN_FILE);
 }
 
 /**
@@ -65,11 +77,11 @@ export function initAuth(refreshToken: string, storagePath: string): void {
         }
     }
 
-    if (cached && cached.seed === refreshToken && cached.refresh_token) {
+    if (cached && cached.seed === seedHash(refreshToken) && cached.refresh_token) {
         tokens = cached;
     } else {
         // Fresh login or no usable cache: start from the config token.
-        tokens = { refresh_token: refreshToken, seed: refreshToken };
+        tokens = { refresh_token: refreshToken, seed: seedHash(refreshToken) };
         persist();
     }
 }

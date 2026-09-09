@@ -38,7 +38,7 @@ export class AwaySwitch {
     }
 
     setAwayStatus(value: CharacteristicValue): void {
-        const command = value ? '"true"' : '"false"';
+        const command = value ? 'true' : 'false';
 
         // Deliberately not awaited, see Thermostat.setTargetTemp.
         setEndpoint(EP_AWAY, command).then(response => {

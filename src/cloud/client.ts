@@ -72,11 +72,11 @@ export async function getEndpoint(endpoint: string): Promise<BoschResponse | und
     }
 }
 
-export async function setEndpoint(endpoint: string, value: string): Promise<BoschWriteResponse | undefined> {
+export async function setEndpoint(endpoint: string, value: string | number): Promise<BoschWriteResponse | undefined> {
     if (authRevoked) {
         return undefined;
     }
-    const body = '{"value":' + value + '}';
+    const body = JSON.stringify({ value });
     globalLogger.debug('Setting', endpoint, 'to', body);
     try {
         await ensureDevice();
@@ -106,7 +106,11 @@ async function request(method: string, url: string, body?: string): Promise<RawR
     let access = await getAccessToken();
     let response = await send(method, url, access, body);
     if (response.status === 401) {
-        access = await forceRefresh();
+        // A concurrent request may already have refreshed the token while this
+        // one was in flight; reuse that instead of forcing another (rotating)
+        // refresh. Only if the token is unchanged do we force one.
+        const current = await getAccessToken();
+        access = current !== access ? current : await forceRefresh();
         response = await send(method, url, access, body);
     }
     return response;

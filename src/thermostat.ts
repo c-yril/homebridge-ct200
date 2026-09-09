@@ -109,7 +109,7 @@ export class Thermostat {
         // Deliberately not awaited: writes share the request queue with the
         // refresh GETs, and HomeKit times a write handler out long before a
         // backed-up queue would drain.
-        setEndpoint(EP_BZ + this.id + EP_BZ_MANUAL_TEMP, String(nearestHalfDecimal)).then(response => {
+        setEndpoint(EP_BZ + this.id + EP_BZ_MANUAL_TEMP, nearestHalfDecimal).then(response => {
             if (response === undefined) {
                 this.platform.log.error('Received invalid response when setting temperature!');
             } else if (response['status'] !== 'ok') {
@@ -139,7 +139,7 @@ export class Thermostat {
     }
 
     setTargetState(value: CharacteristicValue): void {
-        setEndpoint(EP_BZ + this.id + EP_BZ_MODE, value === 3 ? '"clock"' : '"manual"').then(response => {
+        setEndpoint(EP_BZ + this.id + EP_BZ_MODE, value === 3 ? 'clock' : 'manual').then(response => {
             if (response === undefined) {
                 this.platform.log.error('Received invalid response when setting state!');
             } else if (response['status'] === 'ok') {

@@ -21,7 +21,8 @@
   "types": "dist/index.d.ts",
   "files": [
     "dist",
-    "config.schema.json"
+    "config.schema.json",
+    "homebridge-ui"
   ],
   "scripts": {
     "lint": "eslint . --max-warnings=0",
@@ -43,7 +44,9 @@
     "buderus",
     "tc100"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "@homebridge/plugin-ui-utils": "^2.2.6"
+  },
   "devDependencies": {
     "@dotenvx/dotenvx": "^2.23.0",
     "@eslint/js": "^10.0.1",

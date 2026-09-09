@@ -3,8 +3,9 @@
     "pluginType": "platform",
     "singular": true,
     "strictValidation": false,
+    "customUi": true,
     "headerDisplay": "Control a Bosch EasyControl CT200 (and compatible devices such as the Buderus TC100 v2) from HomeKit, over the Bosch cloud.",
-    "footerDisplay": "This plugin talks to the CT200 through the Bosch cloud using your SingleKey ID. Paste a refresh token above — see the [README](https://github.com/c-yril/homebridge-ct200#readme) for how to obtain one. A login button in this settings page comes in a later release.",
+    "footerDisplay": "This plugin talks to the CT200 through the Bosch cloud using your SingleKey ID. Use the **Log in with Bosch** button above to sign in — Homebridge then stays logged in automatically. See the [README](https://github.com/c-yril/homebridge-ct200#readme) for details.",
     "schema": {
         "type": "object",
         "required": [
@@ -19,7 +20,7 @@
                 },
                 "type": "string",
                 "default": "",
-                "description": "OAuth refresh token for your Bosch SingleKey ID account. Obtained by logging in; see the README. A login button in the settings UI comes in a later release.",
+                "description": "Set automatically by the \"Log in with Bosch\" button above. You can also paste a refresh token here manually.",
                 "required": true
             },
             "away": {

@@ -8,12 +8,12 @@ import {
     PlatformConfig,
     Service,
 } from 'homebridge';
-import type { BoschResponse } from 'bosch-xmpp';
+import type { BoschResponse } from './cloud/types';
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { Thermostat } from './thermostat';
 import { AwaySwitch } from './switch';
 import { EP_ZONES, EP_LOCALIZATION, EP_HUMIDITY, EP_AWAY, EP_BZ, EP_BZ_MODE, EP_BZ_TARGET_TEMP } from './endpoints';
-import { connectAPI, disconnectAPI, getEndpoint } from './client';
+import { connectAPI, disconnectAPI, getEndpoint } from './cloud/client';
 
 // All the info needed to describe a Zone
 class Zone {
@@ -111,11 +111,6 @@ function reportZoneList(zones: ResponseZone[]): void {
         globalLogger.warn('Configured zone index ' + missing.join(', ') + ' does not exist on the CT200. '
             + 'Those accessories will never get a temperature - use one of the indexes listed above.');
     }
-}
-
-/** Drops the dashes and spaces a key is printed with. */
-function withoutSeparators(value: unknown): string {
-    return String(value).replace(/[\s-]/g, '');
 }
 
 export function processResponse(response: BoschResponse) {
@@ -254,19 +249,11 @@ export class CT200Platform implements DynamicPlatformPlugin {
         // Never exit the process on a bad config: under Homebridge 2 that turns
         // into an endless (child) bridge restart loop. Stay loaded and idle so
         // the user can fix the config in the UI.
-        if (!config['serial'] || !config['access'] || !config['password'] || !config['zones']) {
-            log.error('Config doesn\'t have needed values! Set access, serial, password and zones, then restart Homebridge.');
+        if (!config['refreshToken'] || !config['zones']) {
+            log.error('Config doesn\'t have needed values! Log in to Bosch in the plugin settings and '
+                + 'add at least one zone, then restart Homebridge.');
             return;
         }
-
-        // Both keys are printed in dash-separated groups on the back of the
-        // device. bosch-xmpp only strips those from the access key; the serial
-        // number reaches the XMPP login verbatim and a pasted one is rejected
-        // there. Accept either form rather than making the user spot that. The
-        // password is left untouched: it is user-chosen, and a dash in it is a
-        // real character.
-        const serial = withoutSeparators(config['serial']);
-        const access = withoutSeparators(config['access']);
 
         this.api.on(APIEvent.DID_FINISH_LAUNCHING, () => {
             log.debug('Executed didFinishLaunching callback');
@@ -281,7 +268,7 @@ export class CT200Platform implements DynamicPlatformPlugin {
             this.log.debug('Finished initializing platform:', this.config.platform);
             this.startPolling();
 
-            connectAPI(serial, access, config['password'])
+            connectAPI({ refreshToken: config['refreshToken'], storagePath: this.api.user.storagePath() })
                 .then(() => {
                     getEndpoint(EP_ZONES);
                     this.refreshCachedState();

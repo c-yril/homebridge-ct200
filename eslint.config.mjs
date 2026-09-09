@@ -52,4 +52,42 @@ export default tseslint.config(
             '@typescript-eslint/no-require-imports': 'off',
         },
     },
+    {
+        // Config UI X custom-UI server: runs as a CommonJS Node child process
+        // spawned by Homebridge Config UI, not inside the plugin runtime.
+        files: ['homebridge-ui/**/*.js'],
+        languageOptions: {
+            sourceType: 'commonjs',
+            globals: {
+                require: 'readonly',
+                module: 'writable',
+                process: 'readonly',
+                console: 'readonly',
+                URL: 'readonly',
+                URLSearchParams: 'readonly',
+                fetch: 'readonly',
+            },
+        },
+        rules: {
+            '@typescript-eslint/no-require-imports': 'off',
+        },
+    },
+    {
+        // ESM maintenance scripts (e.g. the cloud probe): Node globals, console
+        // allowed — these are CLI tools, not Homebridge plugin code.
+        files: ['scripts/**/*.mjs'],
+        languageOptions: {
+            sourceType: 'module',
+            globals: {
+                process: 'readonly',
+                console: 'readonly',
+                Buffer: 'readonly',
+                fetch: 'readonly',
+                URLSearchParams: 'readonly',
+            },
+        },
+        rules: {
+            'no-console': 'off',
+        },
+    },
 );

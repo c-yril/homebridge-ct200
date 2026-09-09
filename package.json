@@ -1,7 +1,7 @@
 {
   "displayName": "Homebridge CT200",
   "name": "@c-yril/homebridge-ct200",
-  "version": "3.1.0",
+  "version": "4.0.0-beta.0",
   "description": "Homebridge plugin to control the Bosch EasyControl CT200 smart thermostat. Fork of homebridge-ct200 with Homebridge 2 support.",
   "license": "MIT",
   "author": "Domas Kalinauskas",
@@ -21,7 +21,8 @@
   "types": "dist/index.d.ts",
   "files": [
     "dist",
-    "config.schema.json"
+    "config.schema.json",
+    "homebridge-ui"
   ],
   "scripts": {
     "lint": "eslint . --max-warnings=0",
@@ -44,7 +45,7 @@
     "tc100"
   ],
   "dependencies": {
-    "bosch-xmpp": "^2.0.0"
+    "@homebridge/plugin-ui-utils": "^2.2.6"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "^2.23.0",

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .ct200-login {
+            margin-bottom: 1.5rem;
+        }
+        .ct200-login ol {
+            padding-left: 1.2rem;
+            margin-bottom: 0.75rem;
+        }
+        .ct200-login li {
+            margin-bottom: 0.35rem;
+        }
+        .ct200-login textarea {
+            width: 100%;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+        .ct200-status {
+            margin-top: 0.5rem;
+            min-height: 1.2rem;
+        }
+        .ct200-status.ok { color: var(--bs-success, #28a745); }
+        .ct200-status.err { color: var(--bs-danger, #dc3545); }
+        .ct200-connected {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .ct200-code {
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="card ct200-login">
+        <div class="card-body">
+            <h5 class="card-title">Bosch account</h5>
+
+            <div id="ct200-connected" class="ct200-connected" style="display:none;">
+                <span class="badge badge-success">Connected</span>
+                <span class="text-muted">A Bosch login is saved for this plugin.</span>
+                <button id="ct200-relogin" type="button" class="btn btn-sm btn-outline-secondary ml-auto">
+                    Log in again
+                </button>
+            </div>
+
+            <div id="ct200-flow" style="display:none;">
+                <p class="text-muted">
+                    Sign in once with your Bosch SingleKey ID. Homebridge then keeps itself
+                    logged in automatically.
+                </p>
+                <ol>
+                    <li>
+                        <button id="ct200-login-btn" type="button" class="btn btn-primary btn-sm">
+                            Log in with Bosch
+                        </button>
+                        &mdash; opens the Bosch login in a new tab.
+                    </li>
+                    <li>
+                        After you sign in, the browser tries to open a
+                        <code>com.bosch.rrc://</code> address and shows an error &mdash;
+                        <strong>that is expected</strong>. Copy that full address from the
+                        address bar (or the error page).
+                    </li>
+                    <li>Paste it below and press <strong>Connect</strong>.</li>
+                </ol>
+                <div class="form-group">
+                    <textarea id="ct200-redirect" rows="3" placeholder="com.bosch.rrc://app/oidc_redirect?code=..."></textarea>
+                </div>
+                <button id="ct200-connect-btn" type="button" class="btn btn-success btn-sm" disabled>
+                    Connect
+                </button>
+                <div id="ct200-status" class="ct200-status"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (async () => {
+            const flow = document.getElementById('ct200-flow');
+            const connected = document.getElementById('ct200-connected');
+            const loginBtn = document.getElementById('ct200-login-btn');
+            const connectBtn = document.getElementById('ct200-connect-btn');
+            const reloginBtn = document.getElementById('ct200-relogin');
+            const redirectInput = document.getElementById('ct200-redirect');
+            const status = document.getElementById('ct200-status');
+
+            function setStatus(msg, kind) {
+                status.textContent = msg || '';
+                status.className = 'ct200-status' + (kind ? ' ' + kind : '');
+            }
+
+            async function currentConfig() {
+                const configs = await homebridge.getPluginConfig();
+                return configs && configs.length ? configs[0] : {};
+            }
+
+            function showConnected(isConnected) {
+                connected.style.display = isConnected ? '' : 'none';
+                flow.style.display = isConnected ? 'none' : '';
+            }
+
+            // Decide the initial view from whether a refresh token is already saved.
+            try {
+                const config = await currentConfig();
+                showConnected(Boolean(config.refreshToken));
+            } catch (e) {
+                showConnected(false);
+            }
+
+            // Render the standard settings form (zones, away switch, intervals)
+            // below the login card.
+            homebridge.showSchemaForm();
+
+            reloginBtn.addEventListener('click', () => {
+                setStatus('');
+                redirectInput.value = '';
+                showConnected(false);
+            });
+
+            loginBtn.addEventListener('click', async () => {
+                setStatus('Preparing login…');
+                try {
+                    const { url } = await homebridge.request('/auth-url');
+                    window.open(url, '_blank', 'noopener');
+                    setStatus('Sign in, then paste the redirect address below.');
+                } catch (e) {
+                    setStatus(e.message || 'Could not start login.', 'err');
+                }
+            });
+
+            redirectInput.addEventListener('input', () => {
+                connectBtn.disabled = redirectInput.value.trim().length === 0;
+            });
+
+            connectBtn.addEventListener('click', async () => {
+                connectBtn.disabled = true;
+                setStatus('Connecting…');
+                homebridge.showSpinner();
+                try {
+                    // Read the existing config first so the server can revoke the
+                    // token this login replaces.
+                    const configs = await homebridge.getPluginConfig();
+                    const config = configs && configs.length ? configs[0] : { platform: 'CT200' };
+
+                    const result = await homebridge.request('/exchange', {
+                        redirectUrl: redirectInput.value.trim(),
+                        previousRefreshToken: config.refreshToken || undefined,
+                    });
+
+                    // Merge the refresh token into the existing config and persist it.
+                    config.platform = config.platform || 'CT200';
+                    config.refreshToken = result.refreshToken;
+                    await homebridge.updatePluginConfig([config]);
+                    await homebridge.savePluginConfig();
+
+                    redirectInput.value = '';
+                    setStatus('Connected. Your Bosch login is saved.', 'ok');
+                    showConnected(true);
+                } catch (e) {
+                    setStatus(e.message || 'Connection failed.', 'err');
+                    connectBtn.disabled = false;
+                } finally {
+                    homebridge.hideSpinner();
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

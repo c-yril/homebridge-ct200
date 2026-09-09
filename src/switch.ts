@@ -1,7 +1,7 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { CT200Platform, globalState } from './platform';
 import { EP_AWAY, EP_BZ, EP_BZ_TARGET_TEMP } from './endpoints';
-import { getEndpoint, setEndpoint } from './client';
+import { getEndpoint, setEndpoint } from './cloud/client';
 
 /**
  * Platform Accessory
@@ -38,7 +38,7 @@ export class AwaySwitch {
     }
 
     setAwayStatus(value: CharacteristicValue): void {
-        const command = value ? '"true"' : '"false"';
+        const command = value ? 'true' : 'false';
 
         // Deliberately not awaited, see Thermostat.setTargetTemp.
         setEndpoint(EP_AWAY, command).then(response => {

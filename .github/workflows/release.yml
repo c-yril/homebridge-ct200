@@ -12,31 +12,30 @@ permissions:
   contents: read
 
 jobs:
-  release:
+  # Installs, lints, builds and packs the tarball. Deliberately has NO
+  # id-token/contents write access and no persisted git credential, so a
+  # compromised dependency lifecycle script cannot publish to npm or push to
+  # the repo. The publishable artifact is the only thing it hands on.
+  build:
     runs-on: ubuntu-latest
-
     permissions:
-      # Creating the git tag and the GitHub release.
-      contents: write
-      # npm trusted publishing: the OIDC token minted from this permission is
-      # what authenticates the publish, and what npm attests provenance with.
-      id-token: write
-
+      contents: read
+    outputs:
+      publish: ${{ steps.version.outputs.publish }}
+      version: ${{ steps.version.outputs.version }}
+      dist_tag: ${{ steps.version.outputs.dist_tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # No pushable credential left behind in .git/config for a dependency
+          # script to find; the release job authenticates separately.
+          persist-credentials: false
 
-      # No registry-url on purpose: it makes setup-node write an .npmrc with
-      # `_authToken=${NODE_AUTH_TOKEN}`, which trusted publishing does not set,
-      # and an empty auth token makes the publish fail instead of falling back
-      # to OIDC. The default registry is npmjs.org anyway.
       - name: Use Node.js 22.x
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 22.x
-
-      # Trusted publishing needs npm 11.5.1+; Node 22 still bundles npm 10.
-      - name: Update npm
-        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm ci
@@ -63,11 +62,19 @@ jobs:
               throw new Error(`registry returned ${response.status} for ${pkg.name}`);
           }
 
+          // A version with a prerelease suffix (e.g. 4.0.0-beta.0) goes out
+          // under the `beta` dist-tag, so it never becomes what `npm install`
+          // picks by default and existing installs are left alone. Only a clean
+          // version publishes as `latest`.
+          const prerelease = pkg.version.includes('-');
+
           console.error(published
               ? `${pkg.name}@${pkg.version} is already on npm, nothing to release.`
               : `${pkg.name}@${pkg.version} is not published yet, releasing.`);
           console.log(`version=${pkg.version}`);
           console.log(`publish=${!published}`);
+          console.log(`dist_tag=${prerelease ? 'beta' : 'latest'}`);
+          console.log(`prerelease=${prerelease}`);
           JS
 
       - name: Lint the project
@@ -80,21 +87,77 @@ jobs:
         env:
           CI: true
 
+      # Pack the exact tarball the publish job will upload. `prepublishOnly`
+      # (lint + build) runs here, inside the unprivileged job.
+      - name: Pack the tarball
+        if: steps.version.outputs.publish == 'true'
+        run: npm pack
+
+      - name: Upload the tarball
+        if: steps.version.outputs.publish == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: npm-package
+          path: '*.tgz'
+          retention-days: 1
+          if-no-files-found: error
+
+  # Publishes the prebuilt tarball. This is the only job with id-token (npm
+  # trusted publishing) and contents write (git tag + GitHub release). It
+  # installs no dependencies and runs no package scripts, so nothing untrusted
+  # executes while those credentials are available.
+  publish:
+    needs: build
+    if: needs.build.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22.x
+
+      # Trusted publishing needs npm 11.5.1+; Node 22 still bundles npm 10.
+      # Pinned to the 11.x line rather than @latest so the publish step's
+      # toolchain is not whatever was released that morning.
+      - name: Update npm
+        run: npm install -g npm@11
+
+      - name: Download the tarball
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: npm-package
+
       # With no token in the npm config this authenticates through npm trusted
       # publishing (OIDC), where the id-token permission above is the whole
       # credential. Provenance is meant to be implicit there, but npm has
       # shipped releases where it is not, so the flag stays either way.
+      # --ignore-scripts: the tarball is already built, so no lifecycle script
+      # needs (or is allowed) to run while the OIDC credential is live.
       - name: Publish to npm
-        if: steps.version.outputs.publish == 'true'
-        run: npm publish --provenance
+        run: npm publish *.tgz --provenance --tag "$DIST_TAG" --ignore-scripts
+        env:
+          DIST_TAG: ${{ needs.build.outputs.dist_tag }}
 
       - name: Create the GitHub release
-        if: steps.version.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.version.outputs.version }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.build.outputs.version }}
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+          TARGET_SHA: ${{ github.sha }}
         run: |
+          # A prerelease is tagged --prerelease and must NOT move the "Latest"
+          # marker off the last stable GitHub release.
+          if [ "$PRERELEASE" = "true" ]; then
+            RELEASE_FLAG="--prerelease --latest=false"
+          else
+            RELEASE_FLAG="--latest"
+          fi
           gh release create "v$VERSION" \
-            --target "$GITHUB_SHA" \
+            --target "$TARGET_SHA" \
             --title "v$VERSION" \
-            --generate-notes
+            --generate-notes \
+            $RELEASE_FLAG

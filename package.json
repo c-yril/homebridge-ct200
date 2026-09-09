@@ -43,9 +43,7 @@
     "buderus",
     "tc100"
   ],
-  "dependencies": {
-    "bosch-xmpp": "^2.0.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@dotenvx/dotenvx": "^2.23.0",
     "@eslint/js": "^10.0.1",

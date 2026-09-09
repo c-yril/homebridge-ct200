@@ -3,48 +3,23 @@
     "pluginType": "platform",
     "singular": true,
     "strictValidation": false,
-    "headerDisplay": "Control a Bosch EasyControl CT200 (and compatible devices such as the Buderus TC100 v2) from HomeKit.",
-    "footerDisplay": "The password is the **device** password set in the EasyControl app under *Settings → Personal → Change Password* — not your Bosch SingleKey ID password. See the [troubleshooting notes](https://github.com/c-yril/homebridge-ct200#troubleshooting) if you get login errors.",
+    "headerDisplay": "Control a Bosch EasyControl CT200 (and compatible devices such as the Buderus TC100 v2) from HomeKit, over the Bosch cloud.",
+    "footerDisplay": "This plugin talks to the CT200 through the Bosch cloud using your SingleKey ID. Paste a refresh token above — see the [README](https://github.com/c-yril/homebridge-ct200#readme) for how to obtain one. A login button in this settings page comes in a later release.",
     "schema": {
         "type": "object",
         "required": [
-            "access",
-            "serial",
-            "password",
+            "refreshToken",
             "zones"
         ],
         "properties": {
-            "access": {
-                "title": "Access Key",
+            "refreshToken": {
+                "title": "Bosch refresh token",
                 "x-schema-form": {
                     "type": "password"
                 },
                 "type": "string",
                 "default": "",
-                "description": "Printed on the back of the device, and shown in the EasyControl app (16 letters). Dashes are ignored, so it can be pasted as printed.",
-                "pattern": "^[A-Za-z0-9-]*$",
-                "minLength": 16,
-                "maxLength": 24,
-                "required": true
-            },
-            "serial": {
-                "title": "Serial key",
-                "type": "string",
-                "pattern": "^[0-9-]*$",
-                "description": "Printed on the back of the device, and shown in the EasyControl app (9 digits). Dashes are ignored, so it can be pasted as printed.",
-                "default": "",
-                "minLength": 9,
-                "maxLength": 14,
-                "required": true
-            },
-            "password": {
-                "title": "Password",
-                "x-schema-form": {
-                    "type": "password"
-                },
-                "type": "string",
-                "description": "Set it in the EasyControl app: Menu \u2192 Settings \u2192 Personal \u2192 Change password. This is not your Bosch SingleKey ID password.",
-                "default": "",
+                "description": "OAuth refresh token for your Bosch SingleKey ID account. Obtained by logging in; see the README. A login button in the settings UI comes in a later release.",
                 "required": true
             },
             "away": {

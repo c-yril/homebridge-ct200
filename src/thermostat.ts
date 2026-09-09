@@ -1,7 +1,7 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { CT200Platform, globalState } from './platform';
 import { EP_BZ, EP_BZ_MODE, EP_BZ_TARGET_TEMP, EP_BZ_MANUAL_TEMP } from './endpoints';
-import { getEndpoint, setEndpoint } from './client';
+import { getEndpoint, setEndpoint } from './cloud/client';
 
 /**
  * Platform Accessory

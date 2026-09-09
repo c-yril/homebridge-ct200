@@ -63,11 +63,19 @@ jobs:
               throw new Error(`registry returned ${response.status} for ${pkg.name}`);
           }
 
+          // A version with a prerelease suffix (e.g. 4.0.0-beta.0) goes out
+          // under the `beta` dist-tag, so it never becomes what `npm install`
+          // picks by default and existing installs are left alone. Only a clean
+          // version publishes as `latest`.
+          const prerelease = pkg.version.includes('-');
+
           console.error(published
               ? `${pkg.name}@${pkg.version} is already on npm, nothing to release.`
               : `${pkg.name}@${pkg.version} is not published yet, releasing.`);
           console.log(`version=${pkg.version}`);
           console.log(`publish=${!published}`);
+          console.log(`dist_tag=${prerelease ? 'beta' : 'latest'}`);
+          console.log(`prerelease=${prerelease}`);
           JS
 
       - name: Lint the project
@@ -86,15 +94,26 @@ jobs:
       # shipped releases where it is not, so the flag stays either way.
       - name: Publish to npm
         if: steps.version.outputs.publish == 'true'
-        run: npm publish --provenance
+        run: npm publish --provenance --tag "$DIST_TAG"
+        env:
+          DIST_TAG: ${{ steps.version.outputs.dist_tag }}
 
       - name: Create the GitHub release
         if: steps.version.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
         run: |
+          # A prerelease is tagged --prerelease and must NOT move the "Latest"
+          # marker off the last stable GitHub release.
+          if [ "$PRERELEASE" = "true" ]; then
+            RELEASE_FLAG="--prerelease --latest=false"
+          else
+            RELEASE_FLAG="--latest"
+          fi
           gh release create "v$VERSION" \
             --target "$GITHUB_SHA" \
             --title "v$VERSION" \
-            --generate-notes
+            --generate-notes \
+            $RELEASE_FLAG

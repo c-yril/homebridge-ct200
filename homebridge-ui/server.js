@@ -191,8 +191,9 @@ function parseRedirect(redirectUrl) {
         // Fall through to regex parsing below.
     }
 
-    const query = redirectUrl.includes('?') ? redirectUrl.slice(redirectUrl.indexOf('?') + 1) : redirectUrl;
-    const params = new URLSearchParams(query);
+    const afterQuery = redirectUrl.includes('?') ? redirectUrl.slice(redirectUrl.indexOf('?') + 1) : redirectUrl;
+    // Drop any #fragment so it can't bleed into the last parameter's value.
+    const params = new URLSearchParams(afterQuery.split('#')[0]);
     return {
         code: params.get('code') || undefined,
         state: params.get('state') || undefined,

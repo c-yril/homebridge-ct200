@@ -176,6 +176,46 @@ function combinations(accessKey, password) {
     return result;
 }
 
+/**
+ * Every letter-casing of a password, capped so the search stays instant. Phone
+ * keyboards mangle case on entry (auto-capitalised first letter, a shift that
+ * did not take), so the device can hold a different casing of what was typed.
+ * AES is exact, so at most one casing decrypts - there are no false positives.
+ */
+function caseVariants(password) {
+    const letters = [];
+    for (let i = 0; i < password.length; i++) {
+        if (/[a-zA-Z]/.test(password[i])) {
+            letters.push(i);
+        }
+    }
+    // 2^letters combinations; refuse to enumerate a set large enough to hang.
+    if (letters.length === 0 || letters.length > 18) {
+        return [];
+    }
+    const variants = [];
+    for (let mask = 0; mask < (1 << letters.length); mask++) {
+        const chars = password.split('');
+        for (let b = 0; b < letters.length; b++) {
+            const i = letters[b];
+            chars[i] = (mask & (1 << b)) ? chars[i].toUpperCase() : chars[i].toLowerCase();
+        }
+        variants.push(chars.join(''));
+    }
+    return variants;
+}
+
+/** The exact casing of a password that decrypts, or undefined. */
+function findCasing(ciphertext, accessKey, password) {
+    for (const variant of caseVariants(password)) {
+        const reply = tryDecrypt(ciphertext, accessKey, variant);
+        if (reply !== undefined) {
+            return { label: 'case-corrected', accessKey, password: variant, reply };
+        }
+    }
+    return undefined;
+}
+
 /** The reading of a typed password that works, with the reply it decrypted. */
 function check(ciphertext, accessKey, password) {
     for (const combination of combinations(accessKey, password)) {
@@ -414,6 +454,14 @@ async function main() {
             + 'decrypt the reply, in any casing of the access key.');
         console.log('  what it decrypts to: ' + previewDecrypt(ciphertext, testAccessKey, fromEnv));
         console.log('  error type: ' + failureReason(ciphertext, testAccessKey, fromEnv));
+        console.log('  trying every letter-casing of it...');
+        const cased = findCasing(ciphertext, testAccessKey, fromEnv);
+        if (cased) {
+            console.log('  found it - a different casing decrypts:');
+            reportMatch(cased, fromEnv, accessKey);
+            process.exit(0);
+        }
+        console.log('  no casing of it works either.');
 
         // Worth one more connection: it tells the user which credential to go
         // and re-read, instead of leaving both under suspicion.
@@ -435,6 +483,12 @@ async function main() {
         console.log('No - length ' + candidate.length + ', ' + Buffer.byteLength(candidate) + ' bytes.');
         console.log('  what it decrypts to: ' + previewDecrypt(ciphertext, testAccessKey, candidate));
         console.log('  error type: ' + failureReason(ciphertext, testAccessKey, candidate));
+        const casedGuess = findCasing(ciphertext, testAccessKey, candidate);
+        if (casedGuess) {
+            console.log('  but a different casing of it decrypts:');
+            reportMatch(casedGuess, candidate, accessKey);
+            break;
+        }
     }
 }
 

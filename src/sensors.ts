@@ -111,12 +111,20 @@ export class HotWater {
     }
 
     setComfort(value: CharacteristicValue): void {
+        // The accepted tokens are learned from the resource's allowedValues (an
+        // instant combi rejects "eco"); fall back to the classic pair if the
+        // device never advertised them.
+        const target = value
+            ? (globalState.dhw.comfortValue ?? 'high')
+            : (globalState.dhw.ecoValue ?? 'eco');
+
         // Deliberately not awaited, see Thermostat.setTargetTemp.
-        setEndpoint(EP_DHW_MODE, value ? 'high' : 'eco').then(response => {
-            if (response === undefined) {
-                this.platform.log.error('Received invalid response when setting hot water mode!');
-            } else if (response['status'] !== 'ok') {
-                this.platform.log.error('Failed to set hot water mode!');
+        setEndpoint(EP_DHW_MODE, target).then(response => {
+            if (response === undefined || response['status'] !== 'ok') {
+                this.platform.log.error('Failed to set hot water mode to "' + target
+                    + '"; the boiler rejected it. Reverting the switch.');
+                // Keep HomeKit honest: snap the switch back to the last known mode.
+                this.mode.updateCharacteristic(this.platform.Characteristic.On, globalState.dhw.comfort === 1);
             }
         });
     }

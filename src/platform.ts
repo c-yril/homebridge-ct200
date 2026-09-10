@@ -65,9 +65,14 @@ interface IBoiler {
 }
 
 // Domestic hot water: current temperature and comfort/eco mode (1 = comfort/high).
+// The exact tokens the boiler accepts for each mode vary by model (an instant
+// combi rejects "eco" with HTTP 400), so they are learned from the resource's
+// advertised allowedValues rather than hardcoded.
 interface IHotWater {
     temp: number | undefined;
     comfort: number;
+    comfortValue?: string;
+    ecoValue?: string;
     accessory?: PlatformAccessory;
 }
 
@@ -385,7 +390,23 @@ export function processResponse(response: BoschResponse) {
         }
 
         case EP_DHW_MODE: {
-            globalState.dhw.comfort = response['value'] === 'high' ? 1 : 0;
+            const mode = typeof response['value'] === 'string' ? response['value'] as string : undefined;
+            const allowed = Array.isArray(response['allowedValues'])
+                ? response['allowedValues'].filter((v): v is string => typeof v === 'string')
+                : undefined;
+            if (allowed && allowed.length > 0) {
+                // Resolve the on/off tokens to whatever this boiler actually accepts,
+                // in priority order, matched case-insensitively.
+                const pick = (candidates: string[]) =>
+                    candidates.map(c => allowed.find(a => a.toLowerCase() === c)).find(Boolean);
+                globalState.dhw.comfortValue = pick(['high', 'comfort', 'on']);
+                globalState.dhw.ecoValue = pick(['eco', 'low', 'off']);
+                globalLogger.debug('DHW operationMode=' + mode + ' writeable=' + response['writeable']
+                    + ' allowed=[' + allowed.join(', ') + '] comfort→' + globalState.dhw.comfortValue
+                    + ' eco→' + globalState.dhw.ecoValue);
+            }
+            const comfortToken = globalState.dhw.comfortValue ?? 'high';
+            globalState.dhw.comfort = mode !== undefined && mode.toLowerCase() === comfortToken.toLowerCase() ? 1 : 0;
             if (globalState.dhw.accessory) {
                 const modeSwitch = globalState.dhw.accessory.getService(hapService.Switch);
                 if (modeSwitch) {

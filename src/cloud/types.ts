@@ -12,6 +12,8 @@ export interface BoschResponse {
     type?: string;
     writeable?: number;
     recordable?: number;
+    /** For enum resources, the exact set of values the device will accept on a write. */
+    allowedValues?: string[];
 }
 
 /** Result of a write: `{status: 'ok'}` for a successful (204) PUT. */

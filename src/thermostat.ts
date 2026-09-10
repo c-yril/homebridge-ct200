@@ -31,6 +31,9 @@ export class Thermostat {
 
         this.service = this.accessory.getService(this.platform.Service.Thermostat)
             || this.accessory.addService(this.platform.Service.Thermostat);
+        // Mark the thermostat as primary so HomeKit folds auxiliary services
+        // (the valve Battery) into this tile instead of splitting them out.
+        this.service.setPrimaryService(true);
 
         this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.name);
         this.id = this.accessory.context.id;
@@ -79,6 +82,11 @@ export class Thermostat {
         if (battery) {
             battery.getCharacteristic(this.platform.Characteristic.StatusLowBattery)
                 .onGet(() => globalState.zones.get(this.id)?.batteryLow ?? 0);
+            battery.getCharacteristic(this.platform.Characteristic.BatteryLevel)
+                .onGet(() => (globalState.zones.get(this.id)?.batteryLow ? 10 : 100));
+            battery.setCharacteristic(this.platform.Characteristic.ChargingState,
+                this.platform.Characteristic.ChargingState.NOT_CHARGEABLE);
+            this.service.addLinkedService(battery);
         }
     }
 

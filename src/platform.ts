@@ -734,8 +734,19 @@ export class CT200Platform implements DynamicPlatformPlugin {
                 battery = zone.accessory.addService(this.Service.Battery, 'Valve Battery', 'valve-battery');
                 battery.getCharacteristic(this.Characteristic.StatusLowBattery)
                     .onGet(() => zone.batteryLow ?? 0);
+                // eTRVs only report ok/low, never a percentage, so expose a
+                // synthetic level (else HomeKit shows a misleading 0%) and mark
+                // the cell as not chargeable.
+                battery.getCharacteristic(this.Characteristic.BatteryLevel)
+                    .onGet(() => (zone.batteryLow ? 10 : 100));
+                battery.setCharacteristic(this.Characteristic.ChargingState,
+                    this.Characteristic.ChargingState.NOT_CHARGEABLE);
+                // Link the battery to the thermostat so HomeKit folds it into the
+                // radiator tile instead of rendering a separate "Valve Battery" tile.
+                zone.accessory.getService(this.Service.Thermostat)?.addLinkedService(battery);
             }
             battery.updateCharacteristic(this.Characteristic.StatusLowBattery, low);
+            battery.updateCharacteristic(this.Characteristic.BatteryLevel, low ? 10 : 100);
         });
     }
 }

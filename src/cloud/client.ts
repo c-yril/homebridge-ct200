@@ -1,6 +1,6 @@
 import { processResponse, globalLogger } from '../platform';
 import { initAuth, getAccessToken, forceRefresh, AuthRevokedError } from './auth';
-import type { BoschResponse, BoschWriteResponse, CloudConfig } from './types';
+import type { BoschResponse, BoschWriteResponse, CloudConfig, DeviceInfo } from './types';
 
 const API_ROOT = 'https://pointt-api.bosch-thermotechnology.com/pointt-api/api/v1';
 
@@ -90,6 +90,89 @@ export async function setEndpoint(endpoint: string, value: string | number): Pro
         handleAuthError(e);
         globalLogger.error('PUT ' + endpoint + ' failed: ' + errorMessage(e));
         return undefined;
+    }
+}
+
+// The device-list root. Enumerated on its own (not via getEndpoint): each entry
+// resolves to a `deviceArray` node whose shape doesn't fit the flat {value}
+// resource model processResponse consumes.
+const DEVICES_PATH = '/devices';
+
+/** Decodes a base64 room label, falling back to the raw string if it isn't base64. */
+function decodeName(raw: unknown): string {
+    if (typeof raw !== 'string') {
+        return '';
+    }
+    try {
+        const decoded = Buffer.from(raw, 'base64').toString('utf8');
+        if (/^[\x20-\x7e]+$/.test(decoded)) {
+            return decoded;
+        }
+    } catch { /* fall through to the raw value */ }
+    return raw;
+}
+
+/**
+ * Enumerates the radiator valves (and the controller) paired to the gateway.
+ * `GET /devices` returns a list of references; each reference resolves to a
+ * node whose `value[0]` is the device descriptor. Only the non-identifying
+ * fields are returned - the serial (`sgtin`) and link secret (`dlk`) present in
+ * the payload are never read. Never throws; returns [] on any failure.
+ */
+export async function getDevices(): Promise<DeviceInfo[]> {
+    if (authRevoked) {
+        return [];
+    }
+    try {
+        await ensureDevice();
+        const root = await request('GET', resourceUrl(DEVICES_PATH));
+        if (root.status !== 200) {
+            globalLogger.debug('GET ' + DEVICES_PATH + ' returned HTTP ' + root.status);
+            return [];
+        }
+
+        const parsed = JSON.parse(root.text) as { references?: Array<{ id?: string }>; value?: Array<{ id?: string }> };
+        const refs = Array.isArray(parsed.references) ? parsed.references
+            : Array.isArray(parsed.value) ? parsed.value : [];
+
+        const devices: DeviceInfo[] = [];
+        for (const ref of refs) {
+            if (!ref || typeof ref !== 'object' || !ref.id) {
+                continue;
+            }
+            let path = String(ref.id);
+            if (!path.startsWith('/')) {
+                path = DEVICES_PATH + '/' + path;
+            }
+
+            const node = await request('GET', resourceUrl(path));
+            if (node.status !== 200) {
+                continue;
+            }
+            const nodeJson = JSON.parse(node.text) as { value?: unknown };
+            const descriptor = Array.isArray(nodeJson.value) ? nodeJson.value[0] : nodeJson.value;
+            if (!descriptor || typeof descriptor !== 'object') {
+                continue;
+            }
+
+            const d = descriptor as Record<string, unknown>;
+            // A real valve/controller carries a numeric zone; sub-collections don't.
+            if (typeof d.zone !== 'number') {
+                continue;
+            }
+            devices.push({
+                zone: d.zone,
+                battery: typeof d.battery === 'string' ? d.battery : 'unknown',
+                signal: typeof d.signal === 'number' ? d.signal : 0,
+                type: typeof d.type === 'string' ? d.type : '',
+                name: decodeName(d.name),
+            });
+        }
+        return devices;
+    } catch (e) {
+        handleAuthError(e);
+        globalLogger.error('GET ' + DEVICES_PATH + ' failed: ' + errorMessage(e));
+        return [];
     }
 }
 

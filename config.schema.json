@@ -30,6 +30,56 @@
                 "default": true,
                 "required": false
             },
+            "autoAway": {
+                "title": "Auto away switch",
+                "type": "boolean",
+                "description": "Show a switch for geofencing/presence auto-away",
+                "default": true,
+                "required": false
+            },
+            "outdoor": {
+                "title": "Outdoor temperature sensor",
+                "type": "boolean",
+                "description": "Show the outdoor temperature as a sensor",
+                "default": true,
+                "required": false
+            },
+            "boiler": {
+                "title": "Boiler status",
+                "type": "boolean",
+                "description": "Show the boiler flow temperature and a fault indicator (notifications, maintenance or refill request)",
+                "default": true,
+                "required": false
+            },
+            "dhw": {
+                "title": "Hot water",
+                "type": "boolean",
+                "description": "Show a hot water comfort/eco switch and temperature sensor",
+                "default": true,
+                "required": false
+            },
+            "boost": {
+                "title": "Heating boost switch",
+                "type": "boolean",
+                "description": "Show a heating boost switch",
+                "default": false,
+                "required": false
+            },
+            "battery": {
+                "title": "Radiator valve battery status",
+                "type": "boolean",
+                "description": "Show low-battery status for radiator valves (eTRV) on their zone thermostat",
+                "default": true,
+                "required": false
+            },
+            "deviceInterval": {
+                "title": "Device interval",
+                "type": "integer",
+                "description": "How often to query radiator valve battery status (minutes)",
+                "default": 30,
+                "minimum": 1,
+                "required": false
+            },
             "zoneInterval": {
                 "title": "Zone interval",
                 "type": "integer",

@@ -1,6 +1,6 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { CT200Platform, globalState } from './platform';
-import { EP_BZ, EP_BZ_MODE, EP_BZ_TARGET_TEMP, EP_BZ_MANUAL_TEMP } from './endpoints';
+import { EP_BZ, EP_BZ_MODE, EP_BZ_TARGET_TEMP, EP_BZ_MANUAL_TEMP, EP_BZ_CLOCK_OVERRIDE_TEMP } from './endpoints';
 import { getEndpoint, setEndpoint } from './cloud/client';
 
 /**
@@ -72,6 +72,14 @@ export class Thermostat {
         this.service.getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
             .onGet(this.getRelativeHumidity.bind(this));
 
+        // A restored accessory may already carry the valve Battery service from a
+        // previous run; onGet handlers don't persist, so rebind it here. Newly
+        // paired valves get their service (and handler) later, in updateDevices.
+        const battery = this.accessory.getService(this.platform.Service.Battery);
+        if (battery) {
+            battery.getCharacteristic(this.platform.Characteristic.StatusLowBattery)
+                .onGet(() => globalState.zones.get(this.id)?.batteryLow ?? 0);
+        }
     }
 
     async getCurrentTemp(): Promise<CharacteristicValue> {
@@ -106,10 +114,16 @@ export class Thermostat {
         // TODO Query step size from API instead of hardcoding value
         const nearestHalfDecimal = Math.round(value as number / 0.5) * 0.5;
 
+        // In auto ("clock") mode the manual setpoint is ignored; the override
+        // setpoint is what actually takes effect. Writing the wrong one is why
+        // the slider looked like it did nothing while a schedule was running.
+        const zone = globalState.zones.get(this.id);
+        const endpoint = zone && zone.mode === 3 ? EP_BZ_CLOCK_OVERRIDE_TEMP : EP_BZ_MANUAL_TEMP;
+
         // Deliberately not awaited: writes share the request queue with the
         // refresh GETs, and HomeKit times a write handler out long before a
         // backed-up queue would drain.
-        setEndpoint(EP_BZ + this.id + EP_BZ_MANUAL_TEMP, nearestHalfDecimal).then(response => {
+        setEndpoint(EP_BZ + this.id + endpoint, nearestHalfDecimal).then(response => {
             if (response === undefined) {
                 this.platform.log.error('Received invalid response when setting temperature!');
             } else if (response['status'] !== 'ok') {

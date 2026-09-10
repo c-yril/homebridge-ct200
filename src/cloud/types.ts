@@ -19,6 +19,24 @@ export interface BoschWriteResponse {
     status?: string;
 }
 
+/**
+ * A radiator valve / controller as enumerated from `GET /devices`. Only the
+ * non-identifying fields are kept: the raw payload also carries `sgtin` (serial)
+ * and `dlk` (a device link secret), which must never be stored or logged.
+ */
+export interface DeviceInfo {
+    /** The heating zone this device belongs to (1 = the CT200 controller itself). */
+    zone: number;
+    /** Battery level enum, e.g. "ok" / "low" / "unknown". */
+    battery: string;
+    /** RF signal strength, 0-100 (diagnostic only). */
+    signal: number;
+    /** Device type, e.g. "thermostat" (controller) or "thermostat_valve" (eTRV). */
+    type: string;
+    /** Decoded room label. */
+    name: string;
+}
+
 /** What `connectAPI` needs to reach the cloud: a refresh token and where to cache it. */
 export interface CloudConfig {
     refreshToken: string;
